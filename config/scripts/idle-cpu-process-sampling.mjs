@@ -57,7 +57,7 @@ function readUnixProcesses() {
 
 function readWindowsProcesses() {
   const script =
-    'Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,WorkingSetSize,CommandLine | ConvertTo-Json -Compress'
+    'Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,WorkingSetSize,UserModeTime,KernelModeTime,CommandLine | ConvertTo-Json -Compress'
   const result = spawnSync('powershell.exe', ['-NoProfile', '-Command', script], {
     encoding: 'utf8',
     maxBuffer: 20 * 1024 * 1024
@@ -67,14 +67,25 @@ function readWindowsProcesses() {
   }
   const parsed = JSON.parse(result.stdout || '[]')
   const entries = Array.isArray(parsed) ? parsed : [parsed]
-  return entries.map((entry) => ({
-    pid: Number(entry.ProcessId),
-    ppid: Number(entry.ParentProcessId),
-    percentCpu: 0,
-    cpuTimeSeconds: null,
-    rssBytes: Number(entry.WorkingSetSize) || 0,
-    command: String(entry.CommandLine || '')
-  }))
+  return entries.map((entry) => {
+    // Why: the sampler derives CPU from the per-process time delta, so without
+    // this the Windows reader reports 0% for everything. Win32_Process exposes
+    // kernel+user time in 100 ns units; `null` keeps the ps-style fallback when a
+    // host does not return them.
+    const userModeTime = Number(entry.UserModeTime)
+    const kernelModeTime = Number(entry.KernelModeTime)
+    return {
+      pid: Number(entry.ProcessId),
+      ppid: Number(entry.ParentProcessId),
+      percentCpu: 0,
+      cpuTimeSeconds:
+        Number.isFinite(userModeTime) && Number.isFinite(kernelModeTime)
+          ? (userModeTime + kernelModeTime) / 10_000_000
+          : null,
+      rssBytes: Number(entry.WorkingSetSize) || 0,
+      command: String(entry.CommandLine || '')
+    }
+  })
 }
 
 export function readProcessRows() {

@@ -159,11 +159,17 @@ function buildAppIfNeeded(root, skipBuild) {
     throw new Error(`--skip-build requested, but ${mainPath} does not exist`)
   }
   console.log('[idle-cpu] building Electron app with electron-vite --mode e2e')
-  run('npx', ['electron-vite', 'build', '--mode', 'e2e'], {
-    cwd: root,
-    stdio: 'inherit',
-    env: { ...process.env, VITE_EXPOSE_STORE: 'true' }
-  })
+  // Why through the wrapper: `npx` only resolves to an executable on POSIX; on Windows it is
+  // `npx.cmd`, which execFileSync cannot run, and the wrapper also verifies the boot graph.
+  run(
+    process.execPath,
+    [path.join(root, 'config', 'scripts', 'run-electron-vite-build.mjs'), '--mode', 'e2e'],
+    {
+      cwd: root,
+      stdio: 'inherit',
+      env: { ...process.env, VITE_EXPOSE_STORE: 'true' }
+    }
+  )
   return mainPath
 }
 
