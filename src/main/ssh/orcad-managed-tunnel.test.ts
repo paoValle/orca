@@ -84,7 +84,7 @@ function setup(overrides: Partial<SshTarget> = {}, targeting?: OrcadManagedTunne
       })
     )
   const removeForwardAndWait = vi.fn().mockResolvedValue(null)
-  const ensureServing = vi.fn().mockResolvedValue(undefined)
+  const ensureServing = vi.fn().mockResolvedValue({ state: 'serving' })
   // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: a test double for the members the tunnel manager calls.
   const forwardManager = {
     setCallbacks: vi.fn(),
@@ -567,6 +567,50 @@ describe('OrcadManagedTunnelManager bound port', () => {
       'Managed Orca server: Managed server'
     )
     expect(state.verifyIdentity).toHaveBeenCalledOnce()
+  })
+
+  it('follows a restarted server to the port it bound, within the same ensure', async () => {
+    const state = boundPortSetup([6_768, 58_520])
+    state.ensureServing
+      .mockResolvedValueOnce({ state: 'started', boundPort: 58_520 })
+      .mockResolvedValue({ state: 'serving' })
+    await state.manager.ensure(createEnvironment('orcadDeployment'))
+
+    expect(state.removeForwardAndWait).toHaveBeenCalledWith('forward-1')
+    expect(state.addForward).toHaveBeenLastCalledWith(
+      'ssh-1',
+      state.connection,
+      46_768,
+      '127.0.0.1',
+      58_520,
+      'Managed Orca server: Managed server'
+    )
+    expect(state.ensureServing).toHaveBeenLastCalledWith(
+      expect.objectContaining({ remotePort: 58_520 })
+    )
+  })
+
+  it('rebuilds after an explicit check finds the server restarted on another port', async () => {
+    const state = boundPortSetup([6_768, 58_520])
+    const environment = createEnvironment('orcadDeployment')
+    await state.manager.ensure(environment)
+    state.ensureServing
+      .mockResolvedValueOnce({ state: 'started', boundPort: 58_520 })
+      .mockResolvedValue({ state: 'serving' })
+
+    await expect(state.manager.verifyServing(environment)).resolves.toMatchObject({
+      state: 'started',
+      rebind: true
+    })
+    expect(state.addForward).toHaveBeenCalledTimes(2)
+    expect(state.addForward).toHaveBeenLastCalledWith(
+      'ssh-1',
+      state.connection,
+      46_768,
+      '127.0.0.1',
+      58_520,
+      'Managed Orca server: Managed server'
+    )
   })
 
   it('reuses a verified tunnel without reading the port again', async () => {

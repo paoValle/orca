@@ -306,7 +306,7 @@ describe('which server an SSH host runs on connect', () => {
       const d = managed({
         ensureServing: vi.fn(async () => {
           order.push('start')
-          return { state: 'started' as const }
+          return { state: 'started' as const, boundPort: null }
         }),
         // The restarted server's fresh daemon answers zero sessions, so the update goes ahead.
         autoUpdate: vi.fn(async (_id, options) => {

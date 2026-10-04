@@ -9,13 +9,16 @@
  */
 import type { KnownRuntimeEnvironment } from '../../shared/runtime-environments'
 import type { SshTarget } from '../../shared/ssh-types'
+import { orcadBoundPort } from './orcad-managed-bound-port'
 import { managedOrcadSlot } from './orcad-managed-runtime-context'
 import { wakeStoppedManagedOrcad } from './orcad-managed-wake'
 import { resolveOrcadRemoteContext } from './orcad-remote-context'
 import type { SshConnection } from './ssh-connection'
 
 export type OrcadManagedServing =
-  | { state: 'serving' | 'started' }
+  | { state: 'serving' }
+  /** `boundPort` is the port the restarted server bound, which a forward must follow. */
+  | { state: 'started'; boundPort: number | null }
   | { state: 'unverifiable'; detail: string }
 
 export type OrcadManagedServingInput = {
@@ -127,7 +130,7 @@ async function wakeIfStopped(
         ? `it had stopped after idling at ${idle.stoppedAt}`
         : 'it had stopped without an idle-stop record (crash, signal or host restart)'
       console.info(`[ssh] Started the managed Orca server on ${label}; ${cause}.`)
-      return { state: 'started' }
+      return { state: 'started', boundPort: orcadBoundPort(wake.readiness) }
     }
     // A live process that did not answer may still be starting; it is not restarted.
     if (wake.outcome === 'serving') {

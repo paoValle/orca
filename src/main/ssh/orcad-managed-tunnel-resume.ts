@@ -58,7 +58,8 @@ type ResumeRecoveryDependencies = {
   ownershipGenerations: Map<string, number>
   probeTunnel?: OrcadManagedTunnelProbe
   targeting: OrcadManagedTunnelTargeting
-  ensureServing?: OrcadManagedServingCheck
+  /** Never rebuilds: a server restarted on a new port drops this forward for the next ensure. */
+  checkServing?: (environment: KnownRuntimeEnvironment) => Promise<unknown>
 }
 
 type ResolvedManagedTunnelEnvironment = {
@@ -233,12 +234,7 @@ export class OrcadManagedTunnelResumeRecovery {
       transportGeneration
     })
     // A server that idled out while this client slept is started here, not reported as lost.
-    await this.dependencies.ensureServing?.({
-      environment: current.environment,
-      target,
-      connection: active.connection,
-      remotePort: forward.remotePort
-    })
+    await this.dependencies.checkServing?.(current.environment)
   }
 
   private resolveEnvironment(

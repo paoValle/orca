@@ -56,10 +56,16 @@ describe('ensureManagedOrcadServing', () => {
       return { outcome: 'started', readiness: { health: { previousIdleStop: null } } as never }
     })
 
-    expect(await ensureManagedOrcadServing(input(async () => false))).toEqual({ state: 'started' })
+    expect(await ensureManagedOrcadServing(input(async () => false))).toEqual({
+      state: 'started',
+      boundPort: null
+    })
     expect(vi.mocked(wakeStoppedManagedOrcad).mock.calls[0]?.[0]).toMatchObject({ port: 6768 })
     expect(listener.starting).toHaveBeenCalledOnce()
-    expect(listener.settled).toHaveBeenCalledWith(expect.anything(), 'env-1', { state: 'started' })
+    expect(listener.settled).toHaveBeenCalledWith(expect.anything(), 'env-1', {
+      state: 'started',
+      boundPort: null
+    })
   })
 
   it('stays unverifiable with the reason when the start fails, never a terminal verdict', async () => {
