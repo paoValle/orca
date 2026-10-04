@@ -301,6 +301,27 @@ describe('which server an SSH host runs on connect', () => {
       expect(d.recordUpdateFailure).not.toHaveBeenCalled()
     })
 
+    it('starts a stopped server before the update counts its terminals, as after a reboot', async () => {
+      const order: string[] = []
+      const d = managed({
+        ensureServing: vi.fn(async () => {
+          order.push('start')
+          return { state: 'started' as const }
+        }),
+        // The restarted server's fresh daemon answers zero sessions, so the update goes ahead.
+        autoUpdate: vi.fn(async (_id, options) => {
+          order.push('update')
+          options.onUpdating()
+          return { outcome: 'updated' as const, activeVersion: '0.1.0+b' }
+        })
+      })
+      await expect(resolveHostServerOnConnect(target, d)).resolves.toEqual({
+        route: 'managed',
+        environmentId: 'env-9'
+      })
+      expect(order).toEqual(['start', 'update'])
+    })
+
     it('keeps the old version serving while terminals run, and retries on a later connect', async () => {
       const reason = '2 terminals are running on this host.'
       const d = managed({
