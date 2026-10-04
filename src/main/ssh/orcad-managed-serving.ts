@@ -28,7 +28,7 @@ export type OrcadManagedServingInput = {
 
 const PROBE_TIMEOUT_MS = 5_000
 // Why: a connect checks right after its fresh tunnel did; one verdict serves both, on that
-// transport only, so a later kill or reboot is never answered from cache.
+// transport and port only, so a kill, reboot or rebind is never answered from cache.
 const VERDICT_REUSE_MS = 5_000
 
 const inFlight = new Map<string, Promise<OrcadManagedServing>>()
@@ -36,6 +36,7 @@ type RecentVerdict = {
   at: number
   connection: SshConnection
   generation: number
+  remotePort: number
   serving: OrcadManagedServing
 }
 const recent = new Map<string, RecentVerdict>()
@@ -64,6 +65,7 @@ export function ensureManagedOrcadServing(
     cached &&
     cached.connection === input.connection &&
     cached.generation === generation &&
+    cached.remotePort === input.remotePort &&
     now() - cached.at < VERDICT_REUSE_MS
   ) {
     return Promise.resolve(cached.serving)
@@ -73,7 +75,13 @@ export function ensureManagedOrcadServing(
     return pending
   }
   const operation = checkAndStart(input).then((serving) => {
-    recent.set(id, { at: now(), connection: input.connection, generation, serving })
+    recent.set(id, {
+      at: now(),
+      connection: input.connection,
+      generation,
+      remotePort: input.remotePort,
+      serving
+    })
     return serving
   })
   const settled = operation.finally(() => inFlight.delete(id))

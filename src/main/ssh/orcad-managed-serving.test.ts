@@ -114,5 +114,8 @@ describe('ensureManagedOrcadServing', () => {
     generation += 1
     await ensureManagedOrcadServing(input(probe), () => 1)
     expect(probe).toHaveBeenCalledTimes(2)
+    // A rebind to the port a restarted server bound is a different server address.
+    await ensureManagedOrcadServing({ ...input(probe), remotePort: 40_001 }, () => 2)
+    expect(probe).toHaveBeenCalledTimes(3)
   })
 })
