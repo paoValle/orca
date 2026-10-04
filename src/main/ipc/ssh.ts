@@ -41,6 +41,7 @@ import {
 } from '../ssh/ssh-connection-generation'
 import { resetSshProviderAuthorities } from '../ssh/ssh-provider-authority'
 import { activeSessions } from './ssh-active-relay-sessions'
+import { installManagedOrcadStartStatus } from './runtime-environment-managed-tunnel'
 import {
   registerAdvertisedUrlRefresh,
   unregisterAdvertisedUrlRefresh
@@ -190,6 +191,7 @@ export function registerSshHandlers(
   setPersistedStore(store)
   reconcileManagedOrcadSshTargets(getAppEnvironment().getPath('userData'), store)
   registerAdvertisedUrlRefresh(getCurrentMainWindow)
+  installManagedOrcadStartStatus()
 
   registerCredentialHandler()
 

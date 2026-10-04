@@ -19,6 +19,7 @@ function deps(overrides: Partial<HostServerOnConnectDeps> = {}): HostServerOnCon
   return {
     managedEnvironmentId: () => null,
     ensureTunnel: vi.fn(async () => undefined),
+    ensureServing: vi.fn(async () => ({ state: 'serving' as const })),
     retireRetainedSource: vi.fn(async () => undefined),
     abandonConversion: vi.fn(async () => undefined),
     abandonDeploy: vi.fn(async () => undefined),

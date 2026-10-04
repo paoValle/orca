@@ -323,9 +323,14 @@ proves it holds no session. Before stopping, orcad writes `<data-root>/orcad-idl
 the next start reports it once as `health.previousIdleStop` and removes it, so a later crash is
 never read as an idle stop. A managed start with no record reports `previousIdleStop: null`.
 
-The next connect starts it again: once the client's tunnel is up and the server does not answer,
-it starts the activated slot under the activation fence, but only on a proven exit. A process
-that is live or cannot be proven gone is left alone. `ORCA_E2E_ORCAD_IDLE_TIMEOUT_MS` shortens the
+The client starts a stopped server again, whatever stopped it (an idle stop, a kill, a host
+reboot): on every connect, on every fresh tunnel (including after the client wakes from sleep),
+and before a call through an environment the client restored at launch. A server that does not
+answer is checked on the host; only a proven exit starts the activated slot, under the activation
+fence, and the status line shows "Starting managed server…". A daemon that survived is adopted
+with its terminals; after a reboot both start fresh. A process that is live or cannot be proven
+gone is left alone, and a start that fails keeps the host managed with the reason and orcad.log's
+tail, never as a verdict about its terminals. `ORCA_E2E_ORCAD_IDLE_TIMEOUT_MS` shortens the idle
 period for tests; the client forwards it to the servers it launches.
 
 ## Health

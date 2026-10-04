@@ -264,7 +264,8 @@ export const SSH_MANAGED_SERVER_PHASES = [
   'deploying',
   'converting',
   'connecting',
-  'updating'
+  'updating',
+  'starting'
 ] as const
 
 export const SSH_MANAGED_SERVER_UPDATE_STATES = ['host-newer', 'deferred', 'failed'] as const
@@ -274,6 +275,9 @@ export type SshManagedServerUpdateNote = {
   state: (typeof SSH_MANAGED_SERVER_UPDATE_STATES)[number]
   detail?: string
 }
+
+/** A managed server that is down and could not be started, with why (and orcad.log's tail). */
+export type SshManagedServerServingNote = { state: 'unverifiable'; detail: string }
 
 export const SSH_MANAGED_SERVER_RELAY_REASONS = [
   'orcad_unavailable',
@@ -288,7 +292,13 @@ export const SSH_MANAGED_SERVER_RELAY_REASONS = [
 export type SshManagedServerRelayReason = (typeof SSH_MANAGED_SERVER_RELAY_REASONS)[number]
 
 export type SshManagedServerStatus =
-  | { kind: 'managed'; environmentId: string; update?: SshManagedServerUpdateNote }
+  | {
+      kind: 'managed'
+      environmentId: string
+      update?: SshManagedServerUpdateNote
+      /** Set when the server was not running and could not be started; never a terminal verdict. */
+      serving?: SshManagedServerServingNote
+    }
   | { kind: 'setting-up'; phase: (typeof SSH_MANAGED_SERVER_PHASES)[number] }
   /** `detail` names the blocker for a refusal, or why orcad can't run on the host. */
   | {

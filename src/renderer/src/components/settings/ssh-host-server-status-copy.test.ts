@@ -31,6 +31,27 @@ describe('SSH host server status line', () => {
     })
   })
 
+  it('shows a stopped server starting, and why one could not be started', () => {
+    expect(
+      sshHostServerStatusLine(plain, { managedServer: { kind: 'setting-up', phase: 'starting' } })
+        ?.text
+    ).toBe('Starting managed server…')
+    const detail = 'orcad did not become ready.\nLast lines of orcad.log:\nboom'
+    expect(
+      sshHostServerStatusLine(plain, {
+        managedServer: {
+          kind: 'managed',
+          environmentId: 'e',
+          serving: { state: 'unverifiable', detail }
+        }
+      })
+    ).toEqual({
+      tone: 'warning',
+      text: 'The managed Orca server isn’t running and couldn’t be started.',
+      detail
+    })
+  })
+
   it('offers the move only while live relay terminals keep the host on the relay', () => {
     expect(
       sshHostServerStatusLine(plain, {

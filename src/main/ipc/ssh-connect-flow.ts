@@ -179,7 +179,12 @@ async function doConnect(
     throw createCancelledConnectAttemptError()
   }
   if (server?.route === 'managed') {
-    return publishManagedServerConnect(targetId, server.environmentId, server.update)
+    return publishManagedServerConnect(
+      targetId,
+      server.environmentId,
+      server.update,
+      server.serving
+    )
   }
   if (server) {
     recordRelayDecision(target, server)

@@ -11,6 +11,7 @@ import { assessOrcadMigrationTerminals } from '../ssh/orcad-migration-terminal-g
 import { hasOrcadTemplate } from '../ssh/orcad-artifact-materializer'
 import { managedServerUpdateDeps } from '../ssh/managed-server-update-deps'
 import { ensureOrcadManagedTunnel } from '../ssh/orcad-managed-tunnel'
+import { verifyOrcadManagedServing } from '../ssh/orcad-managed-serving-verify'
 import { convertSshTargetToManagedOrcad } from '../ssh/orcad-runtime-conversion'
 import { orcadMigrationDestinationFor } from '../ssh/orcad-runtime-conversion-wiring'
 import { createManagedOrcadEnvironment } from '../ssh/orcad-runtime-deployment'
@@ -46,6 +47,7 @@ export function hostServerOnConnectDeps(userDataPath: string): HostServerOnConne
     ensureTunnel: async (environmentId) => {
       await ensureOrcadManagedTunnel(userDataPath, environmentId)
     },
+    ensureServing: (environmentId) => verifyOrcadManagedServing(userDataPath, environmentId),
     retireRetainedSource: async (target) => {
       if (isOrcadSourceRetirementEnabled()) {
         await retireRetainedOrcadSourceChain(userDataPath, store, target, runTargetLifecycle)

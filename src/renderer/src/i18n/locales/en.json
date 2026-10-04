@@ -12417,6 +12417,8 @@
           "converting": "Moving this host’s projects to its managed Orca server…",
           "connecting": "Connecting to the managed Orca server…",
           "updating": "Updating managed server…",
+          "starting": "Starting managed server…",
+          "notServing": "The managed Orca server isn’t running and couldn’t be started.",
           "hostNewer": "Runs a managed Orca server from a newer Orca; it keeps that version.",
           "updateDeferred": "Runs a managed Orca server; it updates on a later connect: {{reason}}",
           "updateFailed": "Runs a managed Orca server on its previous version; updating it failed: {{reason}}",

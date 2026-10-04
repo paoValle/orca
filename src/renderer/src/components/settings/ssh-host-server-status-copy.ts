@@ -30,6 +30,16 @@ export function sshHostServerStatusLine(
       )
     }
   }
+  if (status?.kind === 'managed' && status.serving) {
+    return {
+      tone: 'warning',
+      text: translate(
+        'auto.components.settings.sshHostServer.notServing',
+        'The managed Orca server isn’t running and couldn’t be started.'
+      ),
+      detail: status.serving.detail
+    }
+  }
   if (status?.kind === 'managed' && status.update) {
     return managedUpdateLine(status.update)
   }
@@ -145,6 +155,11 @@ function settingUpLabel(phase: (typeof SSH_MANAGED_SERVER_PHASES)[number]): stri
       return translate(
         'auto.components.settings.sshHostServer.updating',
         'Updating managed server…'
+      )
+    case 'starting':
+      return translate(
+        'auto.components.settings.sshHostServer.starting',
+        'Starting managed server…'
       )
   }
 }

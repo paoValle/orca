@@ -17,7 +17,7 @@ import {
   type OrcadManagedTunnelProbe,
   type OrcadManagedTunnelResumeOptions
 } from './orcad-managed-tunnel-resume'
-import { ensureManagedOrcadServing } from './orcad-managed-wake'
+import { ensureManagedOrcadServing, type OrcadManagedServing } from './orcad-managed-serving'
 import { getSshConnectionManager, getSshTargetRegistryStore } from './ssh-target-registry'
 import {
   environmentForwardChecks,
@@ -165,6 +165,16 @@ export class OrcadManagedTunnelManager {
     this.forwards.dispose()
   }
 
+  /** Checks the server behind the tunnel, starting it if it is proven stopped. */
+  verifyServing(environment: KnownRuntimeEnvironment): Promise<OrcadManagedServing> {
+    const active = this.active.get(environment.id)
+    const target = active && this.dependencies.getTargetStore()?.getTarget(active.targetId)
+    const { connection, remotePort } = active ?? {}
+    return target && connection && remotePort && this.dependencies.ensureServing
+      ? this.dependencies.ensureServing({ environment, target, connection, remotePort })
+      : Promise.resolve({ state: 'unverifiable', detail: 'The managed server tunnel is not up.' })
+  }
+
   recoverAfterHostResume(options: OrcadManagedTunnelResumeOptions): Promise<void> {
     return this.resumeRecovery.recover(options)
   }
@@ -267,12 +277,7 @@ export class OrcadManagedTunnelManager {
       targetId: target.id,
       transportGeneration
     })
-    await this.dependencies.ensureServing?.({
-      environment,
-      target,
-      connection,
-      remotePort: forward.remotePort
-    })
+    await this.verifyServing(environment)
   }
 }
 
@@ -299,6 +304,10 @@ function resolveEnvironmentOrNull(userDataPath: string, id: string) {
   } catch {
     return null
   }
+}
+
+export function verifyManagedTunnelServing(environment: KnownRuntimeEnvironment) {
+  return managedTunnels.verifyServing(environment)
 }
 
 export function disposeOrcadManagedTunnels(): void {

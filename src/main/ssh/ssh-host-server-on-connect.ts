@@ -15,9 +15,11 @@ import type {
 } from '../../shared/orcad-managed-runtime'
 import type {
   SshManagedServerRelayReason,
+  SshManagedServerServingNote,
   SshManagedServerUpdateNote,
   SshTarget
 } from '../../shared/ssh-types'
+import type { OrcadManagedServing } from './orcad-managed-serving'
 import {
   checkManagedServerUpdate,
   type ManagedServerUpdateDeps
@@ -37,10 +39,15 @@ import {
   type HostServerReport
 } from './ssh-host-server-connect-events'
 
-export type HostServerPhase = 'deploying' | 'converting' | 'connecting' | 'updating'
+export type HostServerPhase = 'deploying' | 'converting' | 'connecting' | 'updating' | 'starting'
 
 export type HostServerOnConnectResult =
-  | { route: 'managed'; environmentId: string; update?: SshManagedServerUpdateNote }
+  | {
+      route: 'managed'
+      environmentId: string
+      update?: SshManagedServerUpdateNote
+      serving?: SshManagedServerServingNote
+    }
   | {
       route: 'relay'
       reason: SshManagedServerRelayReason
@@ -58,6 +65,8 @@ export type HostServerTerminalVerdict = {
 export type HostServerOnConnectDeps = {
   managedEnvironmentId: (target: SshTarget) => string | null
   ensureTunnel: (environmentId: string) => Promise<void>
+  /** Behind the tunnel: answers, or is started from its activated slot if proven stopped. */
+  ensureServing: (environmentId: string) => Promise<OrcadManagedServing>
   /** Retires a retained source once retirement is switched on; a failure only defers it. */
   retireRetainedSource: (target: SshTarget) => Promise<void>
   /** False when this build carries no orcad template, so nothing is tried on the host. */
@@ -129,6 +138,11 @@ async function decide(
         }
       }
       throw error
+    }
+    const serving = await deps.ensureServing(existing)
+    if (serving.state === 'unverifiable') {
+      // Still the managed route: a stopped server says nothing about the host's terminals.
+      return { route: 'managed', environmentId: existing, serving }
     }
     await deps.retireRetainedSource(target).catch((error: unknown) => {
       console.warn('[ssh] Source retirement deferred to a later connect:', error)

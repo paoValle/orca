@@ -117,8 +117,18 @@ function admitSshManagedServerStatus(value: unknown): { managedServer?: SshManag
       return {}
     }
     const update = admitSshManagedServerUpdateNote('update' in value ? value.update : undefined)
+    const serving =
+      'serving' in value &&
+      value.serving &&
+      typeof value.serving === 'object' &&
+      'state' in value.serving &&
+      value.serving.state === 'unverifiable' &&
+      'detail' in value.serving &&
+      typeof value.serving.detail === 'string'
+        ? { serving: { state: 'unverifiable' as const, detail: value.serving.detail } }
+        : {}
     return {
-      managedServer: { kind: 'managed', environmentId: value.environmentId, ...update }
+      managedServer: { kind: 'managed', environmentId: value.environmentId, ...update, ...serving }
     }
   }
   if (value.kind === 'setting-up' && 'phase' in value) {

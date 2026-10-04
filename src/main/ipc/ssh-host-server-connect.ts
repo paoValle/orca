@@ -2,6 +2,7 @@
 import { getAppEnvironment } from '../../shared/app-environment'
 import type {
   SshConnectionState,
+  SshManagedServerServingNote,
   SshManagedServerUpdateNote,
   SshTarget
 } from '../../shared/ssh-types'
@@ -38,9 +39,15 @@ export async function decideHostServer(
 export function publishManagedServerConnect(
   targetId: string,
   environmentId: string,
-  update?: SshManagedServerUpdateNote
+  update?: SshManagedServerUpdateNote,
+  serving?: SshManagedServerServingNote
 ): SshConnectionState {
-  const managedServer = { kind: 'managed' as const, environmentId, ...(update ? { update } : {}) }
+  const managedServer = {
+    kind: 'managed' as const,
+    environmentId,
+    ...(update ? { update } : {}),
+    ...(serving ? { serving } : {})
+  }
   setSshHostServerStatus(targetId, managedServer)
   const state: SshConnectionState = {
     ...(connectionManager!.getState(targetId) ?? { targetId, reconnectAttempt: 0 }),

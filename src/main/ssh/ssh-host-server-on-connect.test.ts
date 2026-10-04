@@ -17,6 +17,7 @@ function deps(overrides: Partial<HostServerOnConnectDeps> = {}): HostServerOnCon
   return {
     managedEnvironmentId: () => null,
     ensureTunnel: vi.fn(async () => undefined),
+    ensureServing: vi.fn(async () => ({ state: 'serving' as const })),
     retireRetainedSource: vi.fn(async () => undefined),
     abandonConversion: vi.fn(async () => undefined),
     abandonDeploy: vi.fn(async () => undefined),
@@ -48,6 +49,28 @@ describe('which server an SSH host runs on connect', () => {
     })
     expect(d.ensureTunnel).toHaveBeenCalledWith('env-9')
     expect(d.convert).not.toHaveBeenCalled()
+  })
+
+  it('checks the server behind the tunnel on every connect to a converted host', async () => {
+    const d = deps({ managedEnvironmentId: () => 'env-9' })
+    await resolveHostServerOnConnect(target, d)
+    expect(d.ensureServing).toHaveBeenCalledWith('env-9')
+  })
+
+  it('keeps a host whose stopped server could not be started managed, with the reason', async () => {
+    const detail = 'orcad did not become ready.\nLast lines of orcad.log:\nboom'
+    const d = deps({
+      managedEnvironmentId: () => 'env-9',
+      ensureServing: vi.fn(async () => ({ state: 'unverifiable' as const, detail }))
+    })
+    await expect(resolveHostServerOnConnect(target, d)).resolves.toEqual({
+      route: 'managed',
+      environmentId: 'env-9',
+      serving: { state: 'unverifiable', detail }
+    })
+    // Neither a relay fallback nor any verdict about the host's terminals.
+    expect(d.relayTerminals).not.toHaveBeenCalled()
+    expect(d.autoUpdate).not.toHaveBeenCalled()
   })
 
   it('deploys an empty host directly, and converts a host with state', async () => {
