@@ -152,6 +152,38 @@ function repairRowSpan(
   return { start, end }
 }
 
+/** Widest span the inputs cover; `null` on either side means "nothing known". */
+function unionRowSpans(
+  left: ParsedDirtyRowSpan | null,
+  right: ParsedDirtyRowSpan | null
+): ParsedDirtyRowSpan | null {
+  if (!left) {
+    return right
+  }
+  if (!right) {
+    return left
+  }
+  return { start: Math.min(left.start, right.start), end: Math.max(left.end, right.end) }
+}
+
+/**
+ * Widen a repair that is already queued so the reset about to happen cannot drop
+ * rows it still owes. A pending whole-grid repair (`span: null`) already covers
+ * them, and one renderer swap invalidates them wholesale.
+ */
+function carryRowsIntoPendingRepair(
+  terminal: ForegroundTerminalOutputTarget,
+  carried: ParsedDirtyRowSpan | null
+): void {
+  const queued = pendingViewportSettleRefreshByTerminal.get(terminal)
+  if (!carried || !queued?.repair.span) {
+    return
+  }
+  // Why mutate in place: the queued frame already closed over this repair record,
+  // so replacing the map entry would leave that frame on the old span.
+  queued.repair.span = unionRowSpans(queued.repair.span, carried)
+}
+
 /**
  * The rows the queued repeat must repaint, or `null` for the whole viewport.
  *
@@ -241,7 +273,8 @@ function scheduleViewportSettleRefresh(
 function settleForegroundRender(
   terminal: ForegroundTerminalOutputTarget,
   beforeWriteViewport: ViewportSnapshot,
-  options: ForegroundTerminalWriteOptions
+  options: ForegroundTerminalWriteOptions,
+  carriedDirtySpan: ParsedDirtyRowSpan | null
 ): void {
   const afterWriteViewport = captureViewportSnapshot(terminal)
   const synchronous = options.shouldRefreshViewportSynchronously?.() ?? true
@@ -256,7 +289,14 @@ function settleForegroundRender(
   ) {
     scheduleViewportSettleRefresh(
       terminal,
-      { span, viewport: afterWriteViewport, synchronous },
+      {
+        // Why the carry and the guard: the queued repeat must also cover rows a
+        // reset dropped, but only when this write's own span is proven — `null`
+        // requires the whole grid, which covers the carried rows anyway.
+        span: span ? unionRowSpans(span, carriedDirtySpan) : null,
+        viewport: afterWriteViewport,
+        synchronous
+      },
       options.shouldRefreshViewportSynchronously,
       options.shouldReleaseRenderPause
     )
@@ -271,7 +311,12 @@ export function writeForegroundTerminalChunk(
   const beforeWriteViewport = options.forceViewportRefresh
     ? captureViewportSnapshot(terminal)
     : null
+  let carriedDirtySpan: ParsedDirtyRowSpan | null = null
   if (beforeWriteViewport) {
+    // Why before the reset: a queued repair may still be waiting on rows an
+    // earlier ordinary write dirtied, and this reset is about to forget them.
+    carriedDirtySpan = readParsedDirtyRowSpan(terminal)
+    carryRowsIntoPendingRepair(terminal, carriedDirtySpan)
     // Why here and not in the callback: the span must cover only this write's
     // parse, and xterm fires its dirty-row request between the two.
     resetParsedDirtyRows(terminal)
@@ -283,7 +328,7 @@ export function writeForegroundTerminalChunk(
   const runParsedSteps = (): void => {
     if (beforeWriteViewport) {
       runGuardedWriteCompletionStep('foreground-render-settle', () =>
-        settleForegroundRender(terminal, beforeWriteViewport, options)
+        settleForegroundRender(terminal, beforeWriteViewport, options, carriedDirtySpan)
       )
     }
     if (options.onParsed) {

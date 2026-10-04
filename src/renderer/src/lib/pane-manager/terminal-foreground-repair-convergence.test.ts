@@ -586,6 +586,39 @@ describe('delayed settle repair span', () => {
     expect(double.requests[1]).toEqual({ start: 3, end: 10 })
   })
 
+  it('keeps rows an earlier write dirtied when a later write resets the parse spans', () => {
+    const double = createControllableTarget({ start: 10, end: 10 }, 10)
+    // A forced repair is queued and has not run yet.
+    writeForegroundTerminalChunk(double.target, 'in-place rewrite', {
+      forceViewportRefresh: true,
+      followupViewportRefresh: true,
+      shouldRefreshViewportSynchronously: () => false
+    })
+    expect(double.requests[0]).toEqual({ start: 10, end: 10 })
+
+    // An ordinary write dirties a row that no repair has covered yet.
+    double.setDirty({ start: 3, end: 3 })
+    writeForegroundTerminalChunk(double.target, 'ordinary chunk', {
+      shouldRefreshViewportSynchronously: () => false
+    })
+
+    // A later forced write resets the shared parse-span tracker and queues no
+    // follow-up of its own, so the first repair is still the pending one.
+    double.setDirty({ start: 20, end: 20 })
+    double.active.cursorY = 20
+    writeForegroundTerminalChunk(double.target, 'second rewrite', {
+      forceViewportRefresh: true,
+      shouldRefreshViewportSynchronously: () => false
+    })
+    expect(double.requests[1]).toEqual({ start: 20, end: 20 })
+
+    frame.flush()
+
+    // Row 3 was dirtied before the reset, so only the pending repair can cover it.
+    expect(double.requests.length).toBe(3)
+    expect(double.requests[2]).toEqual({ start: 3, end: 20 })
+  })
+
   it('repaints the whole viewport when the terminal scrolled before the repeat', () => {
     const double = createControllableTarget({ start: 10, end: 10 }, 10)
     writeForegroundTerminalChunk(double.target, 'in-place rewrite', {
