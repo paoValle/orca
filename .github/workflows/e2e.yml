@@ -595,8 +595,6 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  # #24979 on a real host: a relay-era Docker host converts to managed orcad on connect. Needs the
-
   # #24979 on a real host: a relay-era Docker host converts to managed orcad on connect, and a managed
   # orcad idles out and restarts on the next connect. Needs the
   # orcad template for the fixture's target (Debian, linux-x64-glibc), which only this job builds.

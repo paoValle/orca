@@ -231,3 +231,20 @@ describe('recovery refusals keep the fence', () => {
     expect(host.fence).toBe(false)
   })
 })
+
+describe('every launch is a managed one', () => {
+  it.each(scenarios)(
+    '%s starts orcad with idle exit and its activation fence',
+    async (_n, scenario, run) => {
+      host = scenario()
+      await run()
+      const launches = host.commands.filter((command) => command.includes('nohup'))
+      expect(launches.length).toBeGreaterThan(0)
+      for (const launch of launches) {
+        expect(launch).toContain(
+          "ORCA_ORCAD_MANAGED_ACTIVATION_ROOT='/home/u/.orca-remote/.orcad-activation-transaction'"
+        )
+      }
+    }
+  )
+})

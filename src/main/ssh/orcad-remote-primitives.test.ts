@@ -212,7 +212,8 @@ describe('installed build identity and readiness', () => {
           fullVersion: '0.2.0+bb01',
           userDataDir: '/home/u/.orca',
           bindHost: '127.0.0.1',
-          port: 7777
+          port: 7777,
+          activationRoot: '/home/u/.orca-remote/.orcad-activation-transaction'
         },
         expectation
       )

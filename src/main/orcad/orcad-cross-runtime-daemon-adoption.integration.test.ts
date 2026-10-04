@@ -179,7 +179,8 @@ async function launch(slot: Slot, userDataDir: string): Promise<ServeReadiness> 
           fullVersion: slot.version,
           userDataDir,
           bindHost: '127.0.0.1',
-          port: 0
+          port: 0,
+          activationRoot: join(userDataDir, '.orcad-activation-transaction')
         })
       )
     ).trim()

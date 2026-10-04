@@ -26,7 +26,8 @@ const SPEC = {
   fullVersion: '0.2.0+bb01',
   userDataDir: '/home/u/.orca',
   bindHost: '127.0.0.1',
-  port: 7777
+  port: 7777,
+  activationRoot: '/home/u/.orca-remote/.orcad-activation-transaction'
 }
 
 const READY_LINE = JSON.stringify({
@@ -59,10 +60,9 @@ describe('orcadLaunchCommand', () => {
     expect(command).toContain(`ORCA_USER_DATA='${SPEC.userDataDir}'`)
   })
 
-  it('enables idle exit only for a managed launch, which names the activation fence', () => {
-    expect(orcadLaunchCommand(posix, SPEC)).not.toContain(ORCAD_MANAGED_ACTIVATION_ROOT_ENV)
-    const command = orcadLaunchCommand(posix, { ...SPEC, activationRoot: '/home/u/.fence' })
-    expect(command).toContain(`${ORCAD_MANAGED_ACTIVATION_ROOT_ENV}='/home/u/.fence'`)
+  it('names the activation fence on every launch, which enables idle exit', () => {
+    const command = orcadLaunchCommand(posix, SPEC)
+    expect(command).toContain(`${ORCAD_MANAGED_ACTIVATION_ROOT_ENV}='${SPEC.activationRoot}'`)
     expect(command.indexOf(ORCAD_MANAGED_ACTIVATION_ROOT_ENV)).toBeLessThan(
       command.indexOf('nohup')
     )

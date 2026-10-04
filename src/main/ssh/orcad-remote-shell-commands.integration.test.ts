@@ -134,7 +134,8 @@ async function launchTestRuntime(
     fullVersion: '0.2.0+bb01',
     userDataDir: dataDir,
     bindHost: '127.0.0.1',
-    port: 0
+    port: 0,
+    activationRoot: join(dataDir, '.orcad-activation-transaction')
   })
   if (legacyWrapper) {
     // The trailing command retains the old macOS waiting-shell behavior on every POSIX shell.

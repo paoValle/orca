@@ -86,7 +86,16 @@ test('a managed orcad stops after idling and starts again on the next connect', 
 
     await session.close(app)
     app = null
-    await expect.poll(() => runningOrcadPids(target), { timeout: 3 * 60_000 }).toEqual([])
+    await expect
+      .poll(() => runningOrcadPids(target), { timeout: 3 * 60_000 })
+      .toEqual([])
+      .catch((error: unknown) => {
+        // The server logs what kept it up; without it a timeout explains nothing.
+        console.error(
+          execDockerSshRelayTargetCommand(target, 'tail -n 40 /root/.orca-remote/orcad-*/orcad.log')
+        )
+        throw error
+      })
     expect(readIdleStopRecord(target)).toMatchObject({
       kind: 'orcad_idle_stop',
       idleTimeoutMs: IDLE_TIMEOUT_MS

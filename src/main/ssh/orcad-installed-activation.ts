@@ -27,7 +27,10 @@ import { orcadStopFreedTheHost } from './orcad-remote-process-control'
 import { joinRemotePath } from './ssh-remote-platform'
 import { computeLocalOrcadBuildHash } from './orcad-local-build-hash'
 import { preflightInstalledOrcad } from './orcad-remote-preflight'
-import type { OrcadActivationLockControl } from './orcad-activation-lock'
+import {
+  orcadActivationTransactionRoot,
+  type OrcadActivationLockControl
+} from './orcad-activation-lock'
 import type { OrcadActivateTransaction } from './orcad-activation-transaction'
 import {
   createOrcadActivationTransaction,
@@ -222,7 +225,8 @@ export async function activateInstalledOrcad(
       fullVersion,
       userDataDir: options.userDataDir,
       bindHost: options.bindHost,
-      port: options.port
+      port: options.port,
+      activationRoot: orcadActivationTransactionRoot(options.host, options.remoteHome)
     })
   } catch (error) {
     if (isUnconfirmedSshCommandTermination(error)) {

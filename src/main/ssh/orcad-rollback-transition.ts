@@ -21,7 +21,10 @@ import {
 } from './orcad-state-snapshot'
 import { orcadStopFreedTheHost } from './orcad-remote-process-control'
 import { joinRemotePath } from './ssh-remote-platform'
-import type { OrcadActivationLockControl } from './orcad-activation-lock'
+import {
+  orcadActivationTransactionRoot,
+  type OrcadActivationLockControl
+} from './orcad-activation-lock'
 import type { OrcadRollbackTransaction } from './orcad-activation-transaction'
 import {
   createOrcadRollbackTransaction,
@@ -209,7 +212,8 @@ export async function rollbackOrcadLocked(
       fullVersion: safety.target,
       userDataDir: options.userDataDir,
       bindHost: options.bindHost,
-      port: options.port
+      port: options.port,
+      activationRoot: orcadActivationTransactionRoot(options.host, options.remoteHome)
     })
   } catch (error) {
     if (isUnconfirmedSshCommandTermination(error)) {

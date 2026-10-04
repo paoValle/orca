@@ -54,7 +54,8 @@ const spec: OrcadLaunchSpec = {
   fullVersion: '0.2.0+bb01',
   userDataDir: 'C:/Users/u/.orca',
   bindHost: '127.0.0.1',
-  port: 7777
+  port: 7777,
+  activationRoot: `${base}/.orcad-activation-transaction`
 }
 
 function windowsConn(): { conn: SshConnection; writes: [string, string][] } {
@@ -107,7 +108,7 @@ describe('Windows orcad commands run node.exe directly', () => {
       `${NODE} ${SCRIPT} slot-runtime ${slot} clear-stop-request`
     )
     expect(windowsOrcadLaunchCommand(host, spec, SLOT_NODE)).toMatchInlineSnapshot(
-      `"C:\\Users\\u\\.orca-remote\\runtimes\\node-ab\\node.exe C:/Users/u/.orca-remote/orcad-0.2.0+bb01/orcad.js --windows-breakaway-launch --stdout-file C:/Users/u/.orca-remote/orcad-0.2.0+bb01/.orcad-readiness --stderr-file C:/Users/u/.orca-remote/orcad-0.2.0+bb01/orcad.log --process-file C:/Users/u/.orca-remote/orcad-0.2.0+bb01/.orcad-process.json --env ORCA_VERSION=0.2.0+bb01 --env ORCA_USER_DATA=C:/Users/u/.orca --orcad-args --json --bind "127.0.0.1" --port "7777""`
+      `"C:\\Users\\u\\.orca-remote\\runtimes\\node-ab\\node.exe C:/Users/u/.orca-remote/orcad-0.2.0+bb01/orcad.js --windows-breakaway-launch --stdout-file C:/Users/u/.orca-remote/orcad-0.2.0+bb01/.orcad-readiness --stderr-file C:/Users/u/.orca-remote/orcad-0.2.0+bb01/orcad.log --process-file C:/Users/u/.orca-remote/orcad-0.2.0+bb01/.orcad-process.json --env ORCA_VERSION=0.2.0+bb01 --env ORCA_USER_DATA=C:/Users/u/.orca --env ORCA_ORCAD_MANAGED_ACTIVATION_ROOT=C:/Users/u/.orca-remote/.orcad-activation-transaction --orcad-args --json --bind "127.0.0.1" --port "7777""`
     )
   })
 

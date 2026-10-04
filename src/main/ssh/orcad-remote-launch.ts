@@ -49,8 +49,8 @@ export type OrcadLaunchSpec = {
   /** Loopback by default; the client reaches it through an SSH local port-forward. */
   bindHost: string
   port: number
-  /** The host's activation fence; set for every client-managed launch, which enables idle exit. */
-  activationRoot?: string
+  /** The host's activation fence. Every SSH launch is client-managed, so every one may idle out. */
+  activationRoot: string
 }
 
 /** Env a managed launch adds; an older orcad ignores both. */
@@ -58,9 +58,6 @@ export function orcadManagedLaunchEnv(
   spec: OrcadLaunchSpec,
   env: NodeJS.ProcessEnv = process.env
 ): [string, string][] {
-  if (!spec.activationRoot) {
-    return []
-  }
   const e2eTimeout = readOrcadE2EIdleTimeoutMs(env)
   return [
     [ORCAD_MANAGED_ACTIVATION_ROOT_ENV, spec.activationRoot],
