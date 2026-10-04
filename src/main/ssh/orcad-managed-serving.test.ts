@@ -19,14 +19,16 @@ import {
 } from './orcad-managed-serving'
 
 const listener = { starting: vi.fn(), settled: vi.fn() }
+let generation = 1
+// oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: only the transport generation is read; the remote context is mocked.
+const connection = { getTransportGeneration: () => generation } as never
 
 function input(probe: () => Promise<boolean>): OrcadManagedServingInput {
   return {
     // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: only the id is read.
     environment: { id: 'env-1' } as never,
     target: { id: 'ssh-1', label: 'Box', host: 'box', port: 22, username: 'me' },
-    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the remote context is mocked.
-    connection: {} as never,
+    connection,
     remotePort: 6768,
     probe: vi.fn(probe)
   }
@@ -98,11 +100,19 @@ describe('ensureManagedOrcadServing', () => {
       ensureManagedOrcadServing(first, () => now),
       ensureManagedOrcadServing(first, () => now)
     ])
-    now = 10_000
+    now = 4_000
     await ensureManagedOrcadServing(first, () => now)
     expect(probe).toHaveBeenCalledOnce()
-    now = 30_000
+    now = 6_000
     await ensureManagedOrcadServing(first, () => now)
+    expect(probe).toHaveBeenCalledTimes(2)
+  })
+
+  it('never answers a new SSH transport from an earlier verdict, as after a reboot', async () => {
+    const probe = vi.fn(async () => true)
+    await ensureManagedOrcadServing(input(probe), () => 0)
+    generation += 1
+    await ensureManagedOrcadServing(input(probe), () => 1)
     expect(probe).toHaveBeenCalledTimes(2)
   })
 })
