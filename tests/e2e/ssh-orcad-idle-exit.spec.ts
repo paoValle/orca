@@ -9,13 +9,11 @@
 import type { ElectronApplication } from '@stablyai/playwright-test'
 import { expect, test } from './helpers/orca-app'
 import { waitForSessionReady } from './helpers/store'
-import { connectSshTestTarget } from './helpers/ssh-test-target-connection'
 import { createRestartSession } from './helpers/orca-restart'
-import { managedServer, reconnect } from './helpers/orcad-convert-flow'
+import { reconnect } from './helpers/orcad-convert-flow'
 import { ORCAD_CONVERT_HOST_ENV } from './helpers/orcad-convert-host'
 import {
   cleanupDockerSshRelayTarget,
-  DOCKER_SSH_RELAY_REMOTE_REPO_PATH,
   execDockerSshRelayTargetCommand,
   startDockerSshRelayTarget,
   type DockerSshRelayTarget
@@ -62,8 +60,13 @@ test('a managed orcad stops after idling and starts again on the next connect', 
     const first = await session.launch()
     app = first.app
     await waitForSessionReady(first.page)
-    const remote = await connectSshTestTarget(
-      first.page,
+    // A managed host is reached through its server, not a relay, so no relay repo is added.
+    const remote = await first.page.evaluate(
+      async (input) => {
+        const { target: created } = await window.api.ssh.addTarget({ target: input })
+        const state = await window.api.ssh.connect({ targetId: created.id })
+        return { targetId: created.id, managedServer: state?.managedServer ?? null }
+      },
       {
         label: `orcad idle E2E ${Date.now()}`,
         host: target.host,
@@ -72,16 +75,9 @@ test('a managed orcad stops after idling and starts again on the next connect', 
         identityFile: target.identityFile,
         identitiesOnly: true,
         relayGracePeriodSeconds: 1
-      },
-      {
-        remotePath: DOCKER_SSH_RELAY_REMOTE_REPO_PATH,
-        displayName: 'orcad idle E2E',
-        seedInitialTab: false
       }
     )
-    await expect
-      .poll(() => managedServer(first.page, remote.targetId), { timeout: 8 * 60_000 })
-      .toMatchObject({ kind: 'managed' })
+    expect(remote.managedServer).toMatchObject({ kind: 'managed' })
     expect(runningOrcadPids(target)).toHaveLength(1)
 
     // While the client is connected the server stays up past its quiet period.

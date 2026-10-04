@@ -26,7 +26,7 @@ import type { OrcadRuntimeCleanup } from './orcad-runtime-lifetime'
 import { installOrcadStopRequestListeners } from './orcad-stop-request-listener'
 import { prepareOrcadManagedStop } from './orcad-managed-stop-admission'
 import type { OrcadManagedStopContext } from '../../shared/orcad-stop-request'
-import type { OrcadManagedIdleExitInstaller } from './orcad-managed-idle-exit-host'
+import { beginOrcadIdleExit, bindOrcadIdleShutdown } from './orcad-managed-idle-exit-host'
 import {
   changedAiVaultSearchSettings,
   type AiVaultSearchSettings
@@ -114,8 +114,6 @@ export type OrcadHandle = {
   readiness: ServeReadiness
   /** What an instance-bound stop request must name to stop this process. */
   managedStop: OrcadManagedStopContext
-  /** Set only for a client's managed launch; see orcad-managed-idle-exit.ts. */
-  idleExit: OrcadManagedIdleExitInstaller | null
   stop(): Promise<void>
 }
 
@@ -126,7 +124,7 @@ export type OrcadHandle = {
  */
 export async function startOrcad(options: OrcadOptions = {}): Promise<OrcadHandle> {
   installOrcadHostAdapters()
-  const { readiness, idleExit, instance, stop } = await startOrcadWithHost(
+  const { readiness, instance, stop } = await startOrcadWithHost(
     resolveUserDataPath(),
     (registerCleanup) => startOrcadRuntime(options, registerCleanup),
     () => {
@@ -137,18 +135,13 @@ export async function startOrcad(options: OrcadOptions = {}): Promise<OrcadHandl
     }
   )
   const version = process.env.ORCA_VERSION ?? '0.0.0-orcad'
-  return {
-    readiness,
-    managedStop: { version, runtimeId: readiness.runtimeId, instance },
-    idleExit,
-    stop
-  }
+  return { readiness, managedStop: { version, runtimeId: readiness.runtimeId, instance }, stop }
 }
 
 async function startOrcadRuntime(
   options: OrcadOptions,
   registerCleanup: (cleanup: OrcadRuntimeCleanup) => void
-): Promise<Pick<OrcadHandle, 'readiness' | 'idleExit'>> {
+): Promise<Pick<OrcadHandle, 'readiness'>> {
   const { OrcaRuntimeService } = await import('../runtime/orca-runtime')
   const { OrcaRuntimeRpcServer } = await import('../runtime/runtime-rpc')
   const { registerHeadlessPtyRuntime, getLocalPtyProvider, getSshPtyProvider } =
@@ -199,16 +192,7 @@ async function startOrcadRuntime(
   const { resolvePushGatewayOrigin } = await import('../runtime/push/push-gateway-origin')
 
   const runtimeUserDataPath = getAppEnvironment().getPath('userData')
-  const { resolveOrcadManagedIdleExit } = await import('./orcad-managed-idle-exit')
-  const idleExitConfig = resolveOrcadManagedIdleExit(process.env)
-  const { consumeOrcadIdleStopRecord } = await import('./orcad-idle-stop-record')
-  // Read under the instance lock, before anything this run does could be mistaken for it.
-  const previousIdleStop = idleExitConfig
-    ? consumeOrcadIdleStopRecord(runtimeUserDataPath)
-    : undefined
-  if (previousIdleStop) {
-    console.error(`[orcad] the previous run stopped idle at ${previousIdleStop.stoppedAt}`)
-  }
+  const idleExitStartup = beginOrcadIdleExit(runtimeUserDataPath)
   const { store: profileStore, authority: profileStateAuthority } =
     await createOrcadProfileStateStartup(runtimeUserDataPath)
   const observedPaneIdentities = new AgentStatusObservedPaneIdentities()
@@ -407,7 +391,7 @@ async function startOrcadRuntime(
     health: await collectOrcadHealth(
       getAppEnvironment().getVersion(),
       profileStateAuthority,
-      previousIdleStop
+      idleExitStartup.previousIdleStop
     )
   }
 
@@ -418,19 +402,13 @@ async function startOrcadRuntime(
       : { mode: options.json ? 'json' : 'human' }
   )
 
-  const { prepareOrcadManagedIdleExit } = await import('./orcad-managed-idle-exit-host')
-  const idleExit = idleExitConfig
-    ? await prepareOrcadManagedIdleExit({
-        config: idleExitConfig,
-        userDataPath: runtimeUserDataPath,
-        version: getAppEnvironment().getVersion(),
-        rpc,
-        agentStates: () => agentHookServer.getStatusSnapshot(),
-        hasStagedMigration: () => profileStore.hasStagedOrcadMigrationCatalog(),
-        registerCleanup
-      })
-    : null
-  return { readiness, idleExit }
+  await idleExitStartup.start({
+    rpc,
+    agentStates: () => agentHookServer.getStatusSnapshot(),
+    hasStagedMigration: () => profileStore.hasStagedOrcadMigrationCatalog(),
+    registerCleanup
+  })
+  return { readiness }
 }
 
 /**
@@ -461,5 +439,5 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     managedStop: handle.managedStop,
     beforeManagedStop: prepareOrcadManagedStop
   })
-  handle.idleExit?.(requestShutdown)
+  bindOrcadIdleShutdown(requestShutdown)
 }
