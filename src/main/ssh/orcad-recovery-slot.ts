@@ -21,6 +21,7 @@ import {
   type OrcadStopOutcome
 } from './orcad-remote-process-control'
 import { execOrcadRemote, type OrcadRemoteExecTarget } from './orcad-remote-runtime-control'
+import { orcadActivationTransactionRoot } from './orcad-activation-lock'
 import {
   initialOrcadActivationAdmissionCommand,
   parseInitialOrcadActivationAdmission
@@ -70,7 +71,9 @@ export function launchOrcadSlot(
       fullVersion: identity.version,
       userDataDir: options.userDataDir,
       bindHost: options.bindHost,
-      port: options.port
+      port: options.port,
+      // Every SSH launch is client-managed, so every one may idle out and be woken on connect.
+      activationRoot: orcadActivationTransactionRoot(options.host, options.remoteHome)
     },
     expectation(identity)
   )

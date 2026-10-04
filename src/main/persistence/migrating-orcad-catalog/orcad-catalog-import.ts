@@ -191,6 +191,13 @@ export class OrcadCatalogImportPersistence {
       context.runtime.terminalScrollbackSnapshotStorage
     )
   }
+
+  /** A migration into this server that is staged but neither committed nor aborted. */
+  hasStagedOrcadMigrationCatalog(): boolean {
+    return (
+      (this[orcadCatalogImportContext].runtime.state.orcadMigrationStagedCatalogs?.length ?? 0) > 0
+    )
+  }
 }
 
 function commitPreparedCatalog(

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { ORCAD_MANAGED_ACTIVATION_ROOT_ENV } from '../../shared/orcad-idle-exit'
 
 import {
   ORCAD_READINESS_FILENAME,
@@ -56,6 +57,15 @@ describe('orcadLaunchCommand', () => {
     const command = orcadLaunchCommand(posix, SPEC)
     expect(command).toContain(`ORCA_VERSION '${SPEC.fullVersion}'`.replace(' ', '='))
     expect(command).toContain(`ORCA_USER_DATA='${SPEC.userDataDir}'`)
+  })
+
+  it('enables idle exit only for a managed launch, which names the activation fence', () => {
+    expect(orcadLaunchCommand(posix, SPEC)).not.toContain(ORCAD_MANAGED_ACTIVATION_ROOT_ENV)
+    const command = orcadLaunchCommand(posix, { ...SPEC, activationRoot: '/home/u/.fence' })
+    expect(command).toContain(`${ORCAD_MANAGED_ACTIVATION_ROOT_ENV}='/home/u/.fence'`)
+    expect(command.indexOf(ORCAD_MANAGED_ACTIVATION_ROOT_ENV)).toBeLessThan(
+      command.indexOf('nohup')
+    )
   })
 
   it('declares the Windows refusal instead of emitting a command that cannot work', () => {

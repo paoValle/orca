@@ -111,6 +111,18 @@ describe('Windows orcad commands run node.exe directly', () => {
     )
   })
 
+  it('passes the managed idle-exit fence through the breakaway environment', () => {
+    const command = windowsOrcadLaunchCommand(
+      host,
+      { ...spec, activationRoot: 'C:/Users/u/.orca-remote/.orcad-activation-transaction' },
+      SLOT_NODE
+    )
+    expect(command).toContain(
+      '--env ORCA_ORCAD_MANAGED_ACTIVATION_ROOT=C:/Users/u/.orca-remote/.orcad-activation-transaction --orcad-args'
+    )
+    expect(command).not.toMatch(/[%$`']/u)
+  })
+
   it('never polls across SSH: runtime, launch, then one host-side wait', async () => {
     mockExec
       .mockResolvedValueOnce(encoded('__ORCAD_RUNTIME__', SLOT_NODE))

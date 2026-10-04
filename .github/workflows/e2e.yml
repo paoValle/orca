@@ -343,7 +343,8 @@ jobs:
               . != "tests/e2e/terminal-ibus-hangul-native.spec.ts" and
               . != "tests/e2e/orcad-serve-mode-switch.spec.ts" and
               . != "tests/e2e/ssh-orcad-auto-convert.spec.ts" and
-              . != "tests/e2e/windows-missing-appdata-startup.spec.ts"
+              . != "tests/e2e/windows-missing-appdata-startup.spec.ts" and
+              . != "tests/e2e/ssh-orcad-idle-exit.spec.ts"
             )' <<<"$TEST_FILES_JSON" > "$RUNNER_TEMP/general-e2e-specs"
           fi
           mapfile -t TEST_FILES < "$RUNNER_TEMP/general-e2e-specs"
@@ -595,11 +596,14 @@ jobs:
           if-no-files-found: ignore
 
   # #24979 on a real host: a relay-era Docker host converts to managed orcad on connect. Needs the
+
+  # #24979 on a real host: a relay-era Docker host converts to managed orcad on connect, and a managed
+  # orcad idles out and restarts on the next connect. Needs the
   # orcad template for the fixture's target (Debian, linux-x64-glibc), which only this job builds.
   orcad-auto-convert-docker:
     name: ssh host auto-converts to managed orcad (Docker)
     needs: [build, prepare-native-cache]
-    if: inputs.test_files == '' || inputs.ssh_source_changed == 'true' || contains(inputs.test_files, 'tests/e2e/ssh-orcad-auto-convert.spec.ts')
+    if: inputs.test_files == '' || inputs.ssh_source_changed == 'true' || contains(inputs.test_files, 'tests/e2e/ssh-orcad-auto-convert.spec.ts') || contains(inputs.test_files, 'tests/e2e/ssh-orcad-idle-exit.spec.ts')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -635,7 +639,7 @@ jobs:
           ORCA_RELAY_PATH: ${{ github.workspace }}/out/relay
         run: |
           export ORCA_E2E_ORCAD_CONVERT_TEMPLATE="$RUNNER_TEMP/orcad-convert-template"
-          xvfb-run --auto-servernum bash .github/scripts/e2e-with-window-manager.sh pnpm exec playwright test --config tests/playwright.config.ts tests/e2e/ssh-orcad-auto-convert.spec.ts --project=electron-headless --workers=1
+          xvfb-run --auto-servernum bash .github/scripts/e2e-with-window-manager.sh pnpm exec playwright test --config tests/playwright.config.ts tests/e2e/ssh-orcad-auto-convert.spec.ts tests/e2e/ssh-orcad-idle-exit.spec.ts --project=electron-headless --workers=1
       - uses: actions/upload-artifact@v7
         if: failure()
         with:

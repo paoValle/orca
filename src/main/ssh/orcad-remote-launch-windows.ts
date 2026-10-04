@@ -33,7 +33,7 @@ import {
   ORCAD_READINESS_FILENAME,
   ORCAD_WINDOWS_PROCESS_FILENAME
 } from './orcad-remote-host-support'
-import type { OrcadLaunchSpec } from './orcad-remote-launch'
+import { orcadManagedLaunchEnv, type OrcadLaunchSpec } from './orcad-remote-launch'
 
 export class OrcadWindowsLaunchRefusedError extends Error {
   readonly code = 'orcad_windows_launch_refused'
@@ -87,6 +87,10 @@ export function windowsOrcadLaunchCommand(
     `ORCA_VERSION=${spec.fullVersion}`,
     WINDOWS_BREAKAWAY_ENV_FLAG,
     `ORCA_USER_DATA=${spec.userDataDir}`,
+    ...orcadManagedLaunchEnv(spec).flatMap(([name, value]) => [
+      WINDOWS_BREAKAWAY_ENV_FLAG,
+      `${name}=${value}`
+    ]),
     ORCAD_WINDOWS_BREAKAWAY_CONTRACT.argsFlag,
     '--json',
     '--bind',

@@ -19,6 +19,7 @@ import {
 } from '../daemon/daemon-init'
 import type { OrcadProfileStateAuthoritySelection } from './orcad-profile-state-telemetry'
 import { ORCAD_STOP_REQUESTS_CAPABILITY } from '../../shared/orcad-stop-request'
+import type { OrcadIdleStopRecord } from '../../shared/orcad-idle-exit'
 
 /**
  * How much a green self-test actually proves.
@@ -73,6 +74,11 @@ export type OrcadHealth = {
    * Absent on older builds, which a client must keep stopping with SIGTERM.
    */
   stopRequests?: typeof ORCAD_STOP_REQUESTS_CAPABILITY
+  /**
+   * Managed launches only: how the previous run ended if it stopped for idleness, else null
+   * (a crash, a signal, or a first start). Absent on user-started and older builds.
+   */
+  previousIdleStop?: OrcadIdleStopRecord | null
 }
 
 /**
@@ -161,7 +167,8 @@ export async function collectTerminalDaemonHealth(): Promise<TerminalDaemonHealt
 
 export async function collectOrcadHealth(
   buildVersion: string,
-  profileStateAuthority?: OrcadProfileStateAuthoritySelection
+  profileStateAuthority?: OrcadProfileStateAuthoritySelection,
+  previousIdleStop?: OrcadIdleStopRecord | null
 ): Promise<OrcadHealth> {
   return {
     buildHash: computeOrcadBuildHash(),
@@ -173,6 +180,7 @@ export async function collectOrcadHealth(
     pid: process.pid,
     terminalDaemon: await collectTerminalDaemonHealth(),
     ...(profileStateAuthority ? { profileStateAuthority } : {}),
-    stopRequests: ORCAD_STOP_REQUESTS_CAPABILITY
+    stopRequests: ORCAD_STOP_REQUESTS_CAPABILITY,
+    ...(previousIdleStop !== undefined ? { previousIdleStop } : {})
   }
 }

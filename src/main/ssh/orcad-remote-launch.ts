@@ -26,6 +26,11 @@ import type { ServeReadiness } from '../server/serve-readiness'
 import { selectOrcadSlotRuntimeCommand } from './orcad-remote-runtime'
 import { ORCAD_STOP_REQUEST_FILENAME } from '../../shared/orcad-stop-request'
 import { windowsOrcadLivenessProbeCommand } from './orcad-remote-liveness-windows'
+import {
+  ORCAD_E2E_IDLE_TIMEOUT_ENV,
+  ORCAD_MANAGED_ACTIVATION_ROOT_ENV,
+  readOrcadE2EIdleTimeoutMs
+} from '../../shared/orcad-idle-exit'
 
 export {
   ORCAD_LOG_FILENAME,
@@ -44,6 +49,25 @@ export type OrcadLaunchSpec = {
   /** Loopback by default; the client reaches it through an SSH local port-forward. */
   bindHost: string
   port: number
+  /** The host's activation fence; set for every client-managed launch, which enables idle exit. */
+  activationRoot?: string
+}
+
+/** Env a managed launch adds; an older orcad ignores both. */
+export function orcadManagedLaunchEnv(
+  spec: OrcadLaunchSpec,
+  env: NodeJS.ProcessEnv = process.env
+): [string, string][] {
+  if (!spec.activationRoot) {
+    return []
+  }
+  const e2eTimeout = readOrcadE2EIdleTimeoutMs(env)
+  return [
+    [ORCAD_MANAGED_ACTIVATION_ROOT_ENV, spec.activationRoot],
+    ...(e2eTimeout === null
+      ? []
+      : [[ORCAD_E2E_IDLE_TIMEOUT_ENV, String(e2eTimeout)] satisfies [string, string]])
+  ]
 }
 
 /**
@@ -73,6 +97,7 @@ export function orcadLaunchCommand(host: RemoteHostPlatform, spec: OrcadLaunchSp
     'umask 077 &&',
     `ORCA_VERSION=${shellEscape(spec.fullVersion)}`,
     `ORCA_USER_DATA=${shellEscape(spec.userDataDir)}`,
+    ...orcadManagedLaunchEnv(spec).map(([name, value]) => `${name}=${shellEscape(value)}`),
     // Keep $! equal to the runtime PID rather than a waiting shell's PID.
     `exec nohup "$orcad_runtime" ${entry}`,
     `--json --bind ${shellEscape(spec.bindHost)} --port ${String(spec.port)}`,

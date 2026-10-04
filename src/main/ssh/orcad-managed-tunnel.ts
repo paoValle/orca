@@ -11,10 +11,13 @@ import { SshPortForwardManager } from './ssh-port-forward'
 import { OrcadManagedTunnelTransportProvider } from './orcad-managed-tunnel-transport'
 import {
   OrcadManagedTunnelResumeRecovery,
+  probeManagedOrcadTunnel,
   type ActiveOrcadTunnel,
+  type OrcadManagedServingCheck,
   type OrcadManagedTunnelProbe,
   type OrcadManagedTunnelResumeOptions
 } from './orcad-managed-tunnel-resume'
+import { ensureManagedOrcadServing } from './orcad-managed-wake'
 import { getSshConnectionManager, getSshTargetRegistryStore } from './ssh-target-registry'
 import {
   environmentForwardChecks,
@@ -31,6 +34,8 @@ type OrcadManagedTunnelDependencies = {
   forwardManager?: SshPortForwardManager
   probeTunnel?: OrcadManagedTunnelProbe
   targeting?: OrcadManagedTunnelTargeting
+  /** Runs after a fresh forward is up; starts a server that stopped (e.g. after idling). */
+  ensureServing?: OrcadManagedServingCheck
 }
 
 export class OrcadManagedTunnelManager {
@@ -56,7 +61,8 @@ export class OrcadManagedTunnelManager {
       inFlight: this.inFlight,
       ownershipGenerations: this.ownershipGenerations,
       probeTunnel: dependencies.probeTunnel,
-      targeting: this.targeting
+      targeting: this.targeting,
+      ensureServing: dependencies.ensureServing
     })
     this.forwards.setCallbacks({
       onForwardClosed: (entry) => {
@@ -261,13 +267,20 @@ export class OrcadManagedTunnelManager {
       targetId: target.id,
       transportGeneration
     })
+    await this.dependencies.ensureServing?.({
+      environment,
+      target,
+      connection,
+      remotePort: forward.remotePort
+    })
   }
 }
 
 const managedTunnels = new OrcadManagedTunnelManager({
   getConnectionManager: getSshConnectionManager,
   getTargetStore: getSshTargetRegistryStore,
-  targeting: MANAGED_ORCAD_TUNNEL_TARGETING
+  targeting: MANAGED_ORCAD_TUNNEL_TARGETING,
+  ensureServing: (input) => ensureManagedOrcadServing({ ...input, probe: probeManagedOrcadTunnel })
 })
 
 export async function ensureOrcadManagedTunnel(
