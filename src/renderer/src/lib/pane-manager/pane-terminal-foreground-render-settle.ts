@@ -33,9 +33,22 @@ type ForegroundTerminalWriteOptions = {
   onWriteFailure?: () => void
 }
 
+type PendingViewportSettleRefresh =
+  | { kind: 'raf'; id: number }
+  | { kind: 'timeout'; id: ReturnType<typeof setTimeout> }
+
+type PendingViewportSettleRepair = {
+  /** The span the immediate repair used, or `null` when it stayed whole-grid. */
+  span: ParsedDirtyRowSpan | null
+  /** Geometry that span addressed, re-checked when the queued frame runs. */
+  viewport: ViewportSnapshot
+  /** The repair path the write used; a change means the renderer was swapped. */
+  synchronous: boolean
+}
+
 const pendingViewportSettleRefreshByTerminal = new WeakMap<
   ForegroundTerminalOutputTarget,
-  { kind: 'raf'; id: number } | { kind: 'timeout'; id: ReturnType<typeof setTimeout> }
+  { pending: PendingViewportSettleRefresh; repair: PendingViewportSettleRepair }
 >()
 
 type ViewportSnapshot = {
@@ -43,6 +56,7 @@ type ViewportSnapshot = {
   cursorY: number | null
   baseY: number | null
   viewportY: number | null
+  rows: number | null
 }
 
 function refreshVisibleRows(
@@ -89,7 +103,8 @@ function captureViewportSnapshot(terminal: ForegroundTerminalOutputTarget): View
     type: typeof active?.type === 'string' ? active.type : null,
     cursorY: typeof active?.cursorY === 'number' ? active.cursorY : null,
     baseY: typeof active?.baseY === 'number' ? active.baseY : null,
-    viewportY: typeof active?.viewportY === 'number' ? active.viewportY : null
+    viewportY: typeof active?.viewportY === 'number' ? active.viewportY : null,
+    rows: typeof terminal.rows === 'number' ? terminal.rows : null
   }
 }
 
@@ -137,41 +152,90 @@ function repairRowSpan(
   return { start, end }
 }
 
+/**
+ * The rows the queued repeat must repaint, or `null` for the whole viewport.
+ *
+ * Why the repeat is not simply re-issued as the immediate span: the delay crosses
+ * a frame, so other output can arrive first. The rows parsed since the write and
+ * the caret now are unioned in, and any geometry the span cannot be proven to
+ * still address — a scroll, a resize, a buffer flip, an unobservable parse, or a
+ * terminal xterm itself asked to repaint whole — falls back to the whole grid.
+ */
+function pendingRepairRowSpan(
+  terminal: ForegroundTerminalOutputTarget,
+  repair: PendingViewportSettleRepair
+): ParsedDirtyRowSpan | null {
+  const scheduled = repair.viewport
+  const current = captureViewportSnapshot(terminal)
+  if (
+    repair.span === null ||
+    scheduled.type === null ||
+    scheduled.type !== current.type ||
+    scheduled.rows === null ||
+    scheduled.rows !== current.rows ||
+    scheduled.baseY === null ||
+    scheduled.baseY !== current.baseY ||
+    scheduled.viewportY === null ||
+    scheduled.viewportY !== current.viewportY
+  ) {
+    return null
+  }
+  const parsedSince = readParsedDirtyRowSpan(terminal)
+  if (!parsedSince || current.cursorY === null) {
+    return null
+  }
+  return {
+    start: Math.min(repair.span.start, parsedSince.start, current.cursorY),
+    end: Math.max(repair.span.end, parsedSince.end, current.cursorY)
+  }
+}
+
 function cancelScheduledViewportSettleRefresh(terminal: ForegroundTerminalOutputTarget): void {
-  const pending = pendingViewportSettleRefreshByTerminal.get(terminal)
-  if (!pending) {
+  const queued = pendingViewportSettleRefreshByTerminal.get(terminal)
+  if (!queued) {
     return
   }
   pendingViewportSettleRefreshByTerminal.delete(terminal)
-  if (pending.kind === 'raf') {
+  if (queued.pending.kind === 'raf') {
     if (typeof cancelAnimationFrame === 'function') {
-      cancelAnimationFrame(pending.id)
+      cancelAnimationFrame(queued.pending.id)
     }
     return
   }
-  clearTimeout(pending.id)
+  clearTimeout(queued.pending.id)
 }
 
 function scheduleViewportSettleRefresh(
   terminal: ForegroundTerminalOutputTarget,
+  repair: PendingViewportSettleRepair,
   shouldRefreshSynchronously?: () => boolean,
   shouldReleaseRenderPause?: () => boolean
 ): void {
   cancelScheduledViewportSettleRefresh(terminal)
+  const runRepair = (): void => {
+    pendingViewportSettleRefreshByTerminal.delete(terminal)
+    const synchronous = shouldRefreshSynchronously?.() ?? true
+    // Why the path check: the resolver reads the attached renderer, so a flipped
+    // path means a renderer was swapped mid-frame and only the whole viewport can
+    // be proven converged for the replacement.
+    refreshVisibleRows(
+      terminal,
+      synchronous,
+      shouldReleaseRenderPause,
+      synchronous === repair.synchronous ? pendingRepairRowSpan(terminal, repair) : null
+    )
+  }
   if (typeof requestAnimationFrame === 'function') {
-    const id = requestAnimationFrame(() => {
-      pendingViewportSettleRefreshByTerminal.delete(terminal)
-      refreshVisibleRows(terminal, shouldRefreshSynchronously?.() ?? true, shouldReleaseRenderPause)
+    const id = requestAnimationFrame(runRepair)
+    pendingViewportSettleRefreshByTerminal.set(terminal, {
+      pending: { kind: 'raf', id },
+      repair
     })
-    pendingViewportSettleRefreshByTerminal.set(terminal, { kind: 'raf', id })
     return
   }
 
-  const id = setTimeout(() => {
-    pendingViewportSettleRefreshByTerminal.delete(terminal)
-    refreshVisibleRows(terminal, shouldRefreshSynchronously?.() ?? true, shouldReleaseRenderPause)
-  }, 16)
-  pendingViewportSettleRefreshByTerminal.set(terminal, { kind: 'timeout', id })
+  const id = setTimeout(runRepair, 16)
+  pendingViewportSettleRefreshByTerminal.set(terminal, { pending: { kind: 'timeout', id }, repair })
 }
 
 function settleForegroundRender(
@@ -180,12 +244,9 @@ function settleForegroundRender(
   options: ForegroundTerminalWriteOptions
 ): void {
   const afterWriteViewport = captureViewportSnapshot(terminal)
-  refreshVisibleRows(
-    terminal,
-    options.shouldRefreshViewportSynchronously?.() ?? true,
-    options.shouldReleaseRenderPause,
-    repairRowSpan(terminal, beforeWriteViewport, afterWriteViewport)
-  )
+  const synchronous = options.shouldRefreshViewportSynchronously?.() ?? true
+  const span = repairRowSpan(terminal, beforeWriteViewport, afterWriteViewport)
+  refreshVisibleRows(terminal, synchronous, options.shouldReleaseRenderPause, span)
   // Why: when output advances the viewport, Chromium can paint the freshly
   // scrolled top row one frame later than xterm finishes parsing. Repaint once
   // more after the scroll settles so the user doesn't need to jiggle the window.
@@ -195,6 +256,7 @@ function settleForegroundRender(
   ) {
     scheduleViewportSettleRefresh(
       terminal,
+      { span, viewport: afterWriteViewport, synchronous },
       options.shouldRefreshViewportSynchronously,
       options.shouldReleaseRenderPause
     )
