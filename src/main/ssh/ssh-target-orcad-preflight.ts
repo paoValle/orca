@@ -6,6 +6,7 @@
  * What blocks is what cannot move: another owner, live terminal leases, and dependent state the
  * manifest cannot carry. Read-only: building the manifest here exports nothing.
  */
+import { isLiveSshPtyLease } from '../../shared/ssh-pty-lease-liveness'
 import type { Store } from '../persistence'
 import { getManagedOrcadFenceEnvironmentId } from '../../shared/managed-orcad-ssh-owner'
 import type {
@@ -53,7 +54,7 @@ export function preflightOrcadMigrationExport(
   const blockers: OrcadMigrationBlocker[] = [...collectTargetCatalogBlockers(store, target)]
   const terminalLeases = store
     .getSshRemotePtyLeases(targetId)
-    .filter((lease) => lease.state !== 'terminated' && lease.state !== 'expired')
+    .filter(isLiveSshPtyLease)
     .map(({ ptyId, worktreeId, tabId, leafId, state, updatedAt }) => ({
       ptyId,
       worktreeId,

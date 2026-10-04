@@ -1,3 +1,4 @@
+import { isLiveSshPtyLease } from '../../shared/ssh-pty-lease-liveness'
 import { ipcMain } from 'electron'
 import type { SshTarget } from '../../shared/ssh-types'
 import { toAppSshPtyId } from '../providers/ssh-pty-id'
@@ -65,7 +66,7 @@ async function doResetRelay(targetId: string, target: SshTarget): Promise<void> 
       // (docs/reference/ssh-execution-boundary.md). Nothing here can adopt a stranger either — the
       // replacement relay namespaces every id under a fresh mint epoch, so an old orphan lease can
       // only fail its next reattach.
-      if (lease.state !== 'terminated' && lease.state !== 'expired') {
+      if (isLiveSshPtyLease(lease)) {
         ptyIds.add(lease.ptyId)
         // Why: only a host-acknowledged force-stop may retire a lease. When it threw we never
         // observed those shells, so expiring them would record a verdict we do not hold; mirrors
