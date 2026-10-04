@@ -15,6 +15,7 @@ vi.mock('electron', () => ({ app: { getAppPath: () => process.cwd() } }))
 
 import { posix } from 'node:path'
 import { NODE_RUNTIME_PIN } from '../../shared/node-runtime-pin'
+import { ORCAD_PARCEL_WATCHER_NATIVE } from '../../shared/orcad-artifacts'
 import type { SshConnection } from './ssh-connection'
 import { HOSTILE_HOST_CELLS, selectHostileHostCells } from './ssh-hostile-host-cells'
 import { proveManagedOrcadCell } from './ssh-hostile-host-managed-orcad'
@@ -105,6 +106,9 @@ describe('SSH relay hostile-host matrix', () => {
             if (target.kind === 'local-sshd' && target.cell.runsOn.platform === 'darwin') {
               await assertRunsWithoutQuarantine(target, launched.nodePath)
             }
+            // The relay runs on without its watcher, so only a direct load proves the slot's build fits.
+            const watcher = `${first.deployed?.remoteRelayDir}/${ORCAD_PARCEL_WATCHER_NATIVE}`
+            await hostExec(target, `'${launched.nodePath}' -e "require('${watcher}')"`)
           } else if (
             cell.expect.outcome !== 'legacy_opt_out' &&
             cell.expect.refusals[0]?.reason === 'libc_floor'

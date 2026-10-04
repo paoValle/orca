@@ -185,14 +185,8 @@ export const HOSTILE_HOST_CELLS: readonly HostileHostCell[] = [
       runtime: 'linux-x64-glibc217',
       refusals: [{ step: 'A', reason: 'libc_floor' }]
     },
-    // Managed orcad picks the same compat runtime, but the template's @parcel/watcher needs a newer
-    // libstdc++ than CentOS 7 ships, so its preflight refuses and the host keeps relay rung B.
-    managed: {
-      outcome: 'refused',
-      runtime: 'linux-x64-glibc217',
-      code: 'orcad_candidate_preflight_failed',
-      relayRung: 'B'
-    }
+    // Managed orcad runs on the same compat runtime and slot, so an empty CentOS 7 host is managed.
+    managed: { outcome: 'activated', runtime: 'linux-x64-glibc217' }
   },
   {
     // The client uploads the runtime over SSH, so a host that cannot reach nodejs.org still runs A.
