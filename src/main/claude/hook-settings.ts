@@ -16,6 +16,7 @@ import { quotePowerShellLiteral } from '../../shared/powershell-native-argument'
 import { wrapRuntimeHomeHookCommand } from '../agent-hooks/runtime-home-hook-command'
 import { wrapWindowsDirectCmdHookCommand } from '../agent-hooks/windows-direct-cmd-hook-command'
 import type { ClaudeManagedHookPlan } from './claude-managed-hook-events'
+import { defaultClaudeConfigDir } from './claude-config-dir-pin'
 
 export type ClaudeCompatibleHookSettings = {
   configDirName: '.claude' | '.openclaude' | '.qoder' | '.qoder-cn' | '.qwen' | '.codebuddy'
@@ -28,12 +29,15 @@ export type ClaudeCompatibleHookSettings = {
     | 'codebuddy-hook'
   usesWindowsCompatLauncher: boolean
   windowsHookShell?: 'powershell'
+  /** The variable that relocates this CLI's config dir, when it has one. */
+  configDirEnvVar?: 'CLAUDE_CONFIG_DIR'
 }
 
 export const CLAUDE_HOOK_SETTINGS: ClaudeCompatibleHookSettings = {
   configDirName: '.claude',
   scriptBaseName: 'claude-hook',
-  usesWindowsCompatLauncher: true
+  usesWindowsCompatLauncher: true,
+  configDirEnvVar: 'CLAUDE_CONFIG_DIR'
 }
 
 export const OPENCLAUDE_HOOK_SETTINGS: ClaudeCompatibleHookSettings = {
@@ -42,8 +46,20 @@ export const OPENCLAUDE_HOOK_SETTINGS: ClaudeCompatibleHookSettings = {
   usesWindowsCompatLauncher: false
 }
 
+/**
+ * Why: when the variable names a dir, the CLI reads its `settings.json` from there and never sees
+ * hooks written under the default dir — which is how Orca already launches an account whose home is
+ * not the CLI default (`claudeConfigDirEnvPatch`), so those accounts ran no hooks at all (#25242).
+ * The fork CLIs sharing this descriptor keep their own dir names and declare no variable.
+ */
+function hookConfigDir(settings: ClaudeCompatibleHookSettings): string {
+  return settings.configDirEnvVar
+    ? defaultClaudeConfigDir()
+    : join(homedir(), settings.configDirName)
+}
+
 export function getConfigPath(settings = CLAUDE_HOOK_SETTINGS): string {
-  return join(homedir(), settings.configDirName, 'settings.json')
+  return join(hookConfigDir(settings), 'settings.json')
 }
 
 export function getStatusLineScriptBaseName(settings = CLAUDE_HOOK_SETTINGS): string {
