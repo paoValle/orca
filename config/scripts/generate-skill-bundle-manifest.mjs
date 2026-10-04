@@ -627,7 +627,11 @@ async function verifyArtifacts(artifacts, paths = ALL_ARTIFACT_PATHS) {
   for (const [filePath, value, tolerated] of expected) {
     try {
       await access(filePath, constants.R_OK)
-      const committedText = await readFile(filePath, 'utf8')
+      // Why the normalize: the comparison below is textual and `serialized` emits LF only, so a
+      // CRLF checkout (`core.autocrlf` is Git for Windows' default) reported every artifact stale
+      // with no content change. `.gitattributes` pins eol=lf; this absorbs a working copy that is
+      // still CRLF until it is next checked out.
+      const committedText = (await readFile(filePath, 'utf8')).replace(/\r\n?/g, '\n')
       if (committedText !== serialized(value) && !tolerated?.(committedText, artifacts)) {
         stale.push(filePath)
       }
