@@ -55,6 +55,18 @@ function readUnixProcesses() {
   return parseUnixProcesses(stdout)
 }
 
+/**
+ * A `Win32_Process` time field as seconds. Those fields are counts of 100 ns units,
+ * and absent when a host cannot supply them.
+ *
+ * Why not `Number(value)`: it maps `null` to `0`, which is also a real counter
+ * value, so a missing field would look like a genuine reading and the delta below
+ * would come out kernel-only instead of falling back.
+ */
+function cimTimeSeconds(value) {
+  return typeof value === 'number' && Number.isFinite(value) ? value / 10_000_000 : null
+}
+
 function readWindowsProcesses() {
   const script =
     'Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,WorkingSetSize,UserModeTime,KernelModeTime,CommandLine | ConvertTo-Json -Compress'
@@ -69,18 +81,16 @@ function readWindowsProcesses() {
   const entries = Array.isArray(parsed) ? parsed : [parsed]
   return entries.map((entry) => {
     // Why: the sampler derives CPU from the per-process time delta, so without
-    // this the Windows reader reports 0% for everything. Win32_Process exposes
-    // kernel+user time in 100 ns units; `null` keeps the ps-style fallback when a
-    // host does not return them.
-    const userModeTime = Number(entry.UserModeTime)
-    const kernelModeTime = Number(entry.KernelModeTime)
+    // this the Windows reader reports 0% for everything.
+    const userModeSeconds = cimTimeSeconds(entry.UserModeTime)
+    const kernelModeSeconds = cimTimeSeconds(entry.KernelModeTime)
     return {
       pid: Number(entry.ProcessId),
       ppid: Number(entry.ParentProcessId),
       percentCpu: 0,
       cpuTimeSeconds:
-        Number.isFinite(userModeTime) && Number.isFinite(kernelModeTime)
-          ? (userModeTime + kernelModeTime) / 10_000_000
+        userModeSeconds !== null && kernelModeSeconds !== null
+          ? userModeSeconds + kernelModeSeconds
           : null,
       rssBytes: Number(entry.WorkingSetSize) || 0,
       command: String(entry.CommandLine || '')
