@@ -8,11 +8,18 @@ export function canMoveSshHostToManagedServer(): boolean {
 }
 
 export function managedServerMoveOfferText(host: string, terminals: number): string {
-  return translate(
-    'auto.ssh.managedServerMove.offer',
-    'Move {{host}} to a managed Orca server for more reliable connections. Its {{count}} open terminals will restart.',
-    { host, count: terminals }
-  )
+  // Why: 0 means the count was not reported, never that no terminal will restart.
+  return terminals > 0
+    ? translate(
+        'auto.ssh.managedServerMove.offer',
+        'Move {{host}} to a managed Orca server for more reliable connections. Its {{count}} open terminals will restart.',
+        { host, count: terminals }
+      )
+    : translate(
+        'auto.ssh.managedServerMove.offerUncounted',
+        'Move {{host}} to a managed Orca server for more reliable connections. Its open terminals will restart.',
+        { host }
+      )
 }
 
 export function describeManagedServerMove(

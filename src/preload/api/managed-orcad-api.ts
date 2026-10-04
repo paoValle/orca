@@ -4,7 +4,6 @@ import type {
   OrcadDeltaMovePreview,
   OrcadDeltaMoveResult,
   OrcadManagedCancelStopResult,
-  OrcadManagedConversionPreview,
   OrcadManagedConversionResult,
   OrcadManagedDeployResult,
   OrcadManagedPendingMigrationRow,
@@ -33,7 +32,6 @@ export type ManagedOrcadPreloadApi = {
   cancelStop: (args: { selector: string }) => Promise<OrcadManagedCancelStopResult>
   linkSshAccess: (args: RuntimeSshAccessLinkRequest) => Promise<PublicKnownRuntimeEnvironment>
   unlinkSshAccess: (args: RuntimeSshAccessUnlinkRequest) => Promise<PublicKnownRuntimeEnvironment>
-  previewConversion: (args: { sshTargetId: string }) => Promise<OrcadManagedConversionPreview>
   convertSshHost: (args: {
     sshTargetId: string
     name: string
@@ -54,8 +52,6 @@ export const managedOrcadApi: ManagedOrcadPreloadApi = {
   cancelStop: (args) => ipcRenderer.invoke('runtimeEnvironments:cancelOrcadStop', args),
   linkSshAccess: (args) => ipcRenderer.invoke('runtimeEnvironments:linkSshAccess', args),
   unlinkSshAccess: (args) => ipcRenderer.invoke('runtimeEnvironments:unlinkSshAccess', args),
-  previewConversion: (args) =>
-    ipcRenderer.invoke('runtimeEnvironments:previewOrcadConversion', args),
   convertSshHost: (args) =>
     ipcRenderer.invoke('runtimeEnvironments:convertSshHostToManagedOrcad', args),
   listPendingMigrations: () => ipcRenderer.invoke('runtimeEnvironments:listPendingOrcadMigrations'),

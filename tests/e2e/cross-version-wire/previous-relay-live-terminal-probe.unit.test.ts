@@ -1,6 +1,4 @@
-import { execFile } from 'node:child_process'
 import { mkdtemp, rm } from 'node:fs/promises'
-import { connect } from 'node:net'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import {
@@ -10,6 +8,7 @@ import {
 } from '../../../src/main/ssh/ssh-relay-endpoint-incumbent'
 import { mayHoldTerminals } from '../../../src/main/ssh/ssh-previous-relay-terminals'
 import { importReleaseCheckoutModule, materializeReleaseCheckout } from './release-checkout'
+import { accepts, PREVIOUS_RELAY_REF, runShell } from './released-relay-daemon'
 
 /**
  * An app update leaves the previous build's relay running its terminals (#13852). This build probes
@@ -17,32 +16,12 @@ import { importReleaseCheckoutModule, materializeReleaseCheckout } from './relea
  * hangs up. With the `--grace-time 0` it was launched with, that window has no deadline, so the old
  * relay and its terminal must outlive the probe — and the probe must read it as holding live work.
  */
-const PREVIOUS_RELAY_REF = 'v1.4.218'
 const SUITE_TIMEOUT_MS = 180_000
 
 type Constructor = new (...args: unknown[]) => Record<string, unknown>
 
 function isConstructor(value: unknown): value is Constructor {
   return typeof value === 'function'
-}
-
-function runProbe(command: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    execFile('sh', ['-c', command], { timeout: 20_000 }, (error, stdout) =>
-      error ? reject(error) : resolve(stdout)
-    )
-  })
-}
-
-function accepts(sockPath: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    const socket = connect(sockPath)
-    socket.once('connect', () => {
-      socket.destroy()
-      resolve(true)
-    })
-    socket.once('error', () => resolve(false))
-  })
 }
 
 describe.skipIf(process.platform === 'win32')(
@@ -135,7 +114,7 @@ describe.skipIf(process.platform === 'win32')(
 
       incumbent = parseRelayEndpointIncumbentProbe(
         sockPath,
-        await runProbe(relayEndpointIncumbentProbeCommand(process.execPath, sockPath))
+        await runShell(relayEndpointIncumbentProbeCommand(process.execPath, sockPath))
       )
       // Let the old relay handle the probe's hang-up.
       await new Promise((resolve) => setTimeout(resolve, 200))

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { Loader2 } from 'lucide-react'
+import { useCallback, useEffect, useId, useState } from 'react'
 import { toast } from 'sonner'
 import type { OrcadManagedPendingMigrationRow } from '../../../../shared/orcad-managed-runtime'
 import type { PublicKnownRuntimeEnvironment } from '../../../../shared/runtime-environments'
@@ -11,7 +12,7 @@ import { Label } from '../ui/label'
 import { ManagedServerRow } from './ManagedServerRow'
 import { RuntimeSshAccessControl } from './RuntimeSshAccessControl'
 import { SshTargetSelect } from './SshTargetSelect'
-import { migrationPhaseLabel } from './managed-server-copy'
+import { managedServerOutcomeLabel, migrationPhaseLabel } from './managed-server-copy'
 
 type ManagedServersSectionProps = {
   environments: PublicKnownRuntimeEnvironment[]
@@ -29,6 +30,10 @@ export function ManagedServersSection({
   const [name, setName] = useState('')
   const [targetId, setTargetId] = useState('')
   const [deploying, setDeploying] = useState(false)
+  const [resumingId, setResumingId] = useState<string | null>(null)
+  const [loadFailed, setLoadFailed] = useState(false)
+  const hostFieldId = useId()
+  const nameFieldId = useId()
 
   const reload = useCallback(async () => {
     if (!api) {
@@ -41,12 +46,13 @@ export function ManagedServersSection({
     if (mountedRef.current) {
       setTargets(nextTargets)
       setPending(nextPending)
+      setLoadFailed(false)
     }
   }, [api, mountedRef])
 
   useEffect(() => {
-    void reload().catch(() => undefined)
-  }, [reload])
+    void reload().catch(() => mountedRef.current && setLoadFailed(true))
+  }, [mountedRef, reload])
 
   if (!api) {
     return null
@@ -59,7 +65,7 @@ export function ManagedServersSection({
     try {
       const result = await api.deploy({ name: name.trim(), sshTargetId: targetId })
       if (result.outcome === 'deferred') {
-        toast.message(result.reason)
+        toast.message(managedServerOutcomeLabel(result))
       } else {
         setName('')
         setTargetId('')
@@ -76,38 +82,55 @@ export function ManagedServersSection({
   }
 
   const resume = async (row: OrcadManagedPendingMigrationRow): Promise<void> => {
+    if (resumingId) {
+      return
+    }
+    setResumingId(row.migrationId)
     try {
       const result = await api.convertSshHost({ sshTargetId: row.sshTargetId, name: row.name })
       if (result.outcome !== 'converted') {
-        toast.message(result.reason)
+        toast.message(managedServerOutcomeLabel(result))
       }
       onChanged()
       await reload()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error))
+    } finally {
+      if (mountedRef.current) {
+        setResumingId(null)
+      }
     }
   }
 
   return (
-    <div className="space-y-4" id="managed-servers">
-      <div className="space-y-1">
-        <h3 className="text-sm font-semibold">
+    <div className="space-y-4" data-settings-section="managed-servers">
+      <div className="space-y-0.5">
+        <div className="text-sm font-medium">
           {translate('auto.components.settings.managedServers.title', 'Managed servers')}
-        </h3>
+        </div>
         <p className="text-xs text-muted-foreground">
           {translate(
             'auto.components.settings.managedServers.description',
             'Orca installs and runs a server on an empty SSH host and keeps it up to date.'
           )}
         </p>
+        {loadFailed ? (
+          <p className="text-xs text-destructive">
+            {translate(
+              'auto.components.settings.managedServers.loadFailed',
+              'Orca couldn’t load SSH hosts and unfinished moves. Reopen Settings to try again.'
+            )}
+          </p>
+        ) : null}
       </div>
 
       <div className="flex flex-wrap items-end gap-2">
         <div className="min-w-0 flex-1 space-y-1">
-          <Label>
+          <Label htmlFor={hostFieldId}>
             {translate('auto.components.settings.managedServers.deploy.host', 'SSH host')}
           </Label>
           <SshTargetSelect
+            id={hostFieldId}
             targets={targets}
             value={targetId}
             onChange={setTargetId}
@@ -118,17 +141,20 @@ export function ManagedServersSection({
           />
         </div>
         <div className="min-w-0 flex-1 space-y-1">
-          <Label>
+          <Label htmlFor={nameFieldId}>
             {translate('auto.components.settings.managedServers.deploy.name', 'Server name')}
           </Label>
-          <Input value={name} onChange={(event) => setName(event.target.value)} />
+          <Input id={nameFieldId} value={name} onChange={(event) => setName(event.target.value)} />
         </div>
         <Button
           type="button"
           disabled={deploying || targetId === '' || name.trim() === ''}
           onClick={() => void deploy()}
         >
-          {translate('auto.components.settings.managedServers.deploy.submit', 'Deploy server')}
+          {deploying ? <Loader2 className="animate-spin" /> : null}
+          {deploying
+            ? translate('auto.components.settings.managedServers.deploy.running', 'Deploying…')
+            : translate('auto.components.settings.managedServers.deploy.submit', 'Deploy server')}
         </Button>
       </div>
 
@@ -140,7 +166,14 @@ export function ManagedServersSection({
                 <div className="truncate text-sm font-medium">{row.name}</div>
                 <p className="text-xs text-muted-foreground">{migrationPhaseLabel(row.phase)}</p>
               </div>
-              <Button type="button" size="xs" variant="outline" onClick={() => void resume(row)}>
+              <Button
+                type="button"
+                size="xs"
+                variant="outline"
+                disabled={resumingId !== null}
+                onClick={() => void resume(row)}
+              >
+                {resumingId === row.migrationId ? <Loader2 className="animate-spin" /> : null}
                 {translate('auto.components.settings.managedServers.pending.resume', 'Resume')}
               </Button>
             </div>

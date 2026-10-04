@@ -7,7 +7,12 @@ import type { ManagedOrcadPreloadApi } from '../../../../preload/api/managed-orc
 import { useMountedRef } from '@/hooks/useMountedRef'
 import { translate } from '@/i18n/i18n'
 import { Button } from '../ui/button'
-import { migrationPhaseLabel, recoveryLabel, terminalCensusLabel } from './managed-server-copy'
+import {
+  managedServerOutcomeLabel,
+  migrationPhaseLabel,
+  recoveryLabel,
+  terminalCensusLabel
+} from './managed-server-copy'
 
 type ManagedServerAction = 'update' | 'rollback' | 'recover' | 'stop' | 'cancelStop'
 
@@ -18,11 +23,11 @@ type ManagedServerRowProps = {
 }
 
 /** Turns a refusal or deferral into the one line the user acts on. */
-function outcomeMessage(result: { outcome: string; reason?: string }): string | null {
+function outcomeMessage(result: Parameters<typeof managedServerOutcomeLabel>[0]): string | null {
   return result.outcome === 'deferred' ||
     result.outcome === 'refused' ||
     result.outcome === 'failed'
-    ? (result.reason ?? result.outcome)
+    ? managedServerOutcomeLabel(result)
     : null
 }
 
@@ -137,13 +142,11 @@ export function ManagedServerRow({
           {status.deferredUpdate ? (
             <p>
               {translate(
-                'auto.components.settings.managedServers.row.deferred',
-                'Update to {{version}} deferred: {{reason}}',
-                {
-                  version: status.deferredUpdate.candidateVersion,
-                  reason: status.deferredUpdate.reason
-                }
-              )}
+                'auto.components.settings.managedServers.row.deferredVersion',
+                'Update to {{version}} deferred.',
+                { version: status.deferredUpdate.candidateVersion }
+              )}{' '}
+              {managedServerOutcomeLabel(status.deferredUpdate)}
             </p>
           ) : null}
         </div>

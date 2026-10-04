@@ -556,50 +556,12 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  # A profile-less Windows session has no roaming AppData; Electron 43 used to crash natively there.
-  windows-missing-appdata-startup:
-    name: orca serve starts without AppData on Windows
-    if: inputs.test_files == '' || contains(inputs.test_files, 'tests/e2e/windows-missing-appdata-startup.spec.ts')
-    runs-on: windows-2022
-    timeout-minutes: 30
-    env:
-      NODE_OPTIONS: --max-old-space-size=4096
-      ORCA_BACKGROUND_LAUNCH: '1'
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ inputs.ref || github.ref }}
-          persist-credentials: false
-      - uses: ./.github/actions/install-node-dependencies
-        with:
-          native-runtime: electron
-      - name: Build the e2e app and CLI
-        shell: bash
-        run: |
-          pnpm exec electron-vite build --mode e2e
-          pnpm run build:cli
-      - name: Start serve with no AppData folder
-        env:
-          SKIP_BUILD: '1'
-          ORCA_E2E_FORWARD_APP_LOGS: '1'
-          ORCA_STARTUP_DIAGNOSTICS: '1'
-          ELECTRON_ENABLE_LOGGING: '1'
-          ELECTRON_ENABLE_STACK_DUMPING: '1'
-        run: pnpm exec playwright test --config tests/playwright.config.ts tests/e2e/windows-missing-appdata-startup.spec.ts --project=electron-headless --workers=1
-      - uses: actions/upload-artifact@v7
-        if: failure()
-        with:
-          name: windows-missing-appdata-startup-traces
-          path: test-results/
-          retention-days: 7
-          if-no-files-found: ignore
-
   # #24979 on a real host: a relay-era Docker host converts to managed orcad on connect. Needs the
   # orcad template for the fixture's target (Debian, linux-x64-glibc), which only this job builds.
   orcad-auto-convert-docker:
     name: ssh host auto-converts to managed orcad (Docker)
     needs: [build, prepare-native-cache]
-    if: inputs.test_files == '' || inputs.ssh_source_changed == 'true' || contains(inputs.test_files, 'tests/e2e/ssh-orcad-auto-convert.spec.ts')
+    if: inputs.test_files == '' || contains(inputs.test_files, 'tests/e2e/ssh-orcad-auto-convert.spec.ts')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -645,10 +607,11 @@ jobs:
           if-no-files-found: ignore
 
   # D7 on Windows: both hosts share <userData>\daemon and so one daemon pipe. Built here rather than
-  # from the Linux e2e build because the slot, template and addons are Windows-native.
+  # from the Linux e2e build because the slot, template and addons are Windows-native. Also runs the
+  # missing-AppData startup check, which needs the same Windows e2e build.
   orcad-serve-mode-switch-windows:
-    name: orca serve Electron/orcad mode switch on Windows (D7)
-    if: inputs.test_files == '' || contains(inputs.test_files, 'tests/e2e/orcad-serve-mode-switch.spec.ts')
+    name: orca serve on Windows (D7 mode switch, missing AppData)
+    if: inputs.test_files == '' || contains(inputs.test_files, 'tests/e2e/orcad-serve-mode-switch.spec.ts') || contains(inputs.test_files, 'tests/e2e/windows-missing-appdata-startup.spec.ts')
     runs-on: windows-2022
     timeout-minutes: 45
     env:
@@ -675,16 +638,20 @@ jobs:
           pnpm build:orcad
           node config/scripts/build-windows-process-tree-relay-addon.mjs --arch=x64
           node config/scripts/build-orcad-template.mjs --targets win32-x64
+      # A profile-less Windows session has no roaming AppData; Electron 43 used to crash natively there.
+      - name: Start serve with no AppData folder
+        if: inputs.test_files == '' || contains(inputs.test_files, 'tests/e2e/windows-missing-appdata-startup.spec.ts')
+        env:
+          SKIP_BUILD: '1'
+          ORCA_E2E_FORWARD_APP_LOGS: '1'
+        run: pnpm exec playwright test --config tests/playwright.config.ts tests/e2e/windows-missing-appdata-startup.spec.ts --project=electron-headless --workers=1
       - name: Switch serve hosts on one profile
+        if: ${{ !cancelled() && (inputs.test_files == '' || contains(inputs.test_files, 'tests/e2e/orcad-serve-mode-switch.spec.ts')) }}
         env:
           SKIP_BUILD: '1'
           ORCA_E2E_ORCAD_SERVE: '1'
           ORCA_E2E_FORWARD_APP_LOGS: '1'
           ORCA_E2E_PRESERVE_PROFILE_LOGS_DIR: ${{ github.workspace }}\test-results\profile-logs
-          # A launch that dies before its window prints this trail into Playwright's call log.
-          ORCA_STARTUP_DIAGNOSTICS: '1'
-          ELECTRON_ENABLE_LOGGING: '1'
-          ELECTRON_ENABLE_STACK_DUMPING: '1'
         run: pnpm exec playwright test --config tests/playwright.config.ts tests/e2e/orcad-serve-mode-switch.spec.ts --project=electron-headless --workers=1
       - uses: actions/upload-artifact@v7
         if: failure()

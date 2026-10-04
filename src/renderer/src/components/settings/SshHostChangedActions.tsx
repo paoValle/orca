@@ -54,7 +54,15 @@ export function SshHostChangedActions({
       <Button type="button" size="xs" variant="outline" onClick={() => setMoving(true)}>
         {translate('auto.components.settings.deltaMove.action', 'Move the new projects…')}
       </Button>
-      <Button type="button" size="xs" variant="ghost" onClick={() => setKeeping(true)}>
+      <Button
+        type="button"
+        size="xs"
+        variant="ghost"
+        onClick={() => {
+          setError(null)
+          setKeeping(true)
+        }}
+      >
         {translate('auto.components.settings.keepServer.action', 'Keep the server’s version…')}
       </Button>
       <SshHostDeltaMoveDialog
@@ -63,8 +71,8 @@ export function SshHostChangedActions({
         onClose={() => setMoving(false)}
         onFinished={onChanged}
       />
-      <Dialog open={keeping} onOpenChange={(open) => !open && setKeeping(false)}>
-        <DialogContent>
+      <Dialog open={keeping} onOpenChange={(open) => !open && !busy && setKeeping(false)}>
+        <DialogContent showCloseButton={!busy}>
           <DialogHeader>
             <DialogTitle>
               {translate('auto.components.settings.keepServer.title', 'Keep the server’s version')}
@@ -78,7 +86,7 @@ export function SshHostChangedActions({
           </DialogHeader>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setKeeping(false)} disabled={busy}>
+            <Button variant="ghost" onClick={() => setKeeping(false)} disabled={busy}>
               {translate('auto.components.settings.keepServer.cancel', 'Cancel')}
             </Button>
             <Button onClick={() => void keepServerVersion()} disabled={busy}>

@@ -89,7 +89,8 @@ export function classifyE2eJobs(input, sshSourceChanged = 'false') {
         (spec) =>
           dockerSpecs.has(spec) ||
           spec === LOCALHOST_SSH_E2E_SPEC ||
-          spec === ORCAD_SERVE_MODE_SWITCH_E2E_SPEC
+          spec === ORCAD_SERVE_MODE_SWITCH_E2E_SPEC ||
+          spec === ORCAD_AUTO_CONVERT_E2E_SPEC
       )
   }
 }

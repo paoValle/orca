@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { Loader2 } from 'lucide-react'
+import { useId, useState } from 'react'
 import { toast } from 'sonner'
 import type { PublicKnownRuntimeEnvironment } from '../../../../shared/runtime-environments'
 import type { SshTarget } from '../../../../shared/ssh-types'
@@ -29,6 +30,8 @@ export function RuntimeSshAccessControl({
   const [targetId, setTargetId] = useState('')
   const [remotePort, setRemotePort] = useState(DEFAULT_REMOTE_PORT)
   const [busy, setBusy] = useState(false)
+  const targetFieldId = useId()
+  const portFieldId = useId()
   const linked = environment.sshAccess
 
   const submit = async (): Promise<void> => {
@@ -76,8 +79,9 @@ export function RuntimeSshAccessControl({
   return (
     <div className="flex flex-wrap items-end gap-2 px-4 py-3">
       <div className="min-w-0 flex-1 space-y-1">
-        <Label>{environment.name}</Label>
+        <Label htmlFor={targetFieldId}>{environment.name}</Label>
         <SshTargetSelect
+          id={targetFieldId}
           targets={targets}
           value={targetId}
           onChange={setTargetId}
@@ -88,17 +92,21 @@ export function RuntimeSshAccessControl({
         />
       </div>
       <div className="w-24 space-y-1">
-        <Label>
+        <Label htmlFor={portFieldId}>
           {translate('auto.components.settings.managedServers.access.port', 'Server port')}
         </Label>
         <Input
+          id={portFieldId}
           value={remotePort}
           inputMode="numeric"
           onChange={(event) => setRemotePort(event.target.value)}
         />
       </div>
       <Button type="button" disabled={busy || !valid} onClick={() => void submit()}>
-        {translate('auto.components.settings.managedServers.access.link', 'Use SSH')}
+        {busy ? <Loader2 className="animate-spin" /> : null}
+        {busy
+          ? translate('auto.components.settings.managedServers.access.linking', 'Connecting…')
+          : translate('auto.components.settings.managedServers.access.link', 'Use SSH')}
       </Button>
     </div>
   )

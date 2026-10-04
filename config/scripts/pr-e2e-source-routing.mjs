@@ -17,26 +17,33 @@ export const PR_E2E_SOURCE_ROUTES = [
     id: 'serve.orcad-mode-switch',
     specs: ['tests/e2e/orcad-serve-mode-switch.spec.ts'],
     matches: (file) =>
-      isProductSource(file) &&
-      /^src\/(?:cli\/runtime\/(?:launch|serve-)|main\/orcad\/(?:main|orcad-entry|orcad-instance-lock|orcad-command-arguments|orcad-lifecycle)\.ts$|main\/startup\/desktop-profile-instance-lock\.ts$|main\/daemon\/daemon-(?:spawner|endpoint-adoption|init)|main\/server\/serve-)/.test(
+      /^tests\/e2e\/helpers\/(?:orca-serve-cli-host|headless-paired-runtime-host)\.ts$/.test(
         file
-      )
+      ) ||
+      (isProductSource(file) &&
+        /^src\/(?:cli\/runtime\/(?:launch|serve-)|main\/orcad\/(?:main|orcad-entry|orcad-instance-lock|orcad-command-arguments|orcad-lifecycle)\.ts$|main\/startup\/desktop-profile-instance-lock\.ts$|main\/daemon\/daemon-(?:spawner|endpoint-adoption|init)|main\/server\/serve-)/.test(
+          file
+        ))
   },
   {
     id: 'startup.windows-missing-appdata',
     specs: ['tests/e2e/windows-missing-appdata-startup.spec.ts'],
     matches: (file) =>
-      isProductSource(file) &&
-      /^src\/main\/startup\/(?:windows-app-data-path|main-process-preflight)\.ts$/.test(file)
+      file === 'tests/e2e/helpers/orca-serve-cli-host.ts' ||
+      (isProductSource(file) &&
+        /^src\/main\/startup\/(?:windows-app-data-path|main-process-preflight)\.ts$/.test(file))
   },
   {
     id: 'ssh.orcad-auto-convert',
     specs: ['tests/e2e/ssh-orcad-auto-convert.spec.ts'],
     matches: (file) =>
-      isProductSource(file) &&
-      /^src\/main\/(?:ipc\/ssh-host-server-|ssh\/(?:ssh-host-server-|orcad-runtime-conversion|orcad-migration-|orcad-retained-source|orcad-runtime-deployment))/.test(
+      /^tests\/e2e\/helpers\/(?:orcad-convert-(?:flow|host)|orcad-template-variant|orcad-upgrade-profile)\.ts$/.test(
         file
-      )
+      ) ||
+      (isProductSource(file) &&
+        /^src\/main\/(?:ipc\/ssh-host-server-|ssh\/(?:ssh-host-server-|orcad-runtime-conversion|orcad-migration-|orcad-retained-source|orcad-runtime-deployment))/.test(
+          file
+        ))
   },
   {
     id: 'ssh.localhost-agent-hooks',

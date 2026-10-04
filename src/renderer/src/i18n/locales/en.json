@@ -12309,14 +12309,14 @@
             "notRunning": "Not running",
             "refresh": "Refresh status",
             "migration": "Migration: {{phase}}",
-            "deferred": "Update to {{version}} deferred: {{reason}}",
             "update": "Update",
             "rollback": "Roll back",
             "recover": "Recover",
             "cancelStop": "Cancel stop",
             "confirmStop": "Stop and remove server",
             "keep": "Keep running",
-            "stop": "Stop…"
+            "stop": "Stop…",
+            "deferredVersion": "Update to {{version}} deferred."
           },
           "title": "Managed servers",
           "description": "Orca installs and runs a server on an empty SSH host and keeps it up to date.",
@@ -12324,7 +12324,8 @@
             "host": "SSH host",
             "hostPlaceholder": "Choose an empty SSH host",
             "name": "Server name",
-            "submit": "Deploy server"
+            "submit": "Deploy server",
+            "running": "Deploying…"
           },
           "pending": {
             "resume": "Resume"
@@ -12335,27 +12336,12 @@
             "unlink": "Stop using SSH",
             "target": "Reach through SSH host",
             "port": "Server port",
-            "link": "Use SSH"
-          },
-          "move": {
-            "title": "Move to managed server",
-            "description": "Orca installs a server on {{host}} and moves this host’s projects onto it. The host keeps everything until the server confirms it has a copy.",
-            "moves": "What moves",
-            "confirm": "I have closed every terminal on this host. Running terminals cannot move and stop the move.",
-            "running": "Installing the server and copying projects. You can close Settings; the move resumes from where it stopped.",
-            "converted": "Moved. {{name}} now serves these projects.",
-            "cancel": "Cancel",
-            "submit": "Move host",
-            "resume": "Resume",
-            "close": "Close",
-            "action": "Move to managed server"
+            "link": "Use SSH",
+            "linking": "Connecting…"
           },
           "search": {
             "title": "Managed servers",
-            "description": "Deploy and run an Orca server on your own SSH hosts, and move an SSH host’s projects onto one.",
-            "keywordSsh": "ssh",
-            "keywordServer": "server",
-            "keywordMigrate": "migrate"
+            "keywordSsh": "ssh"
           },
           "phase": {
             "fenced": "Host locked",
@@ -12381,13 +12367,6 @@
             "dependents": "State that cannot move yet: {{kinds}}.",
             "unverifiable": "Orca could not read its saved {{sources}}, so it cannot tell what would move."
           },
-          "moves": {
-            "repositories": "Repositories: {{count}}",
-            "folderWorkspaces": "Folder workspaces: {{count}}",
-            "projectGroups": "Project groups: {{count}}",
-            "automations": "Automations: {{count}}",
-            "session": "Closed tabs and saved layouts"
-          },
           "kind": {
             "portForward": "port forwards",
             "terminalLease": "terminals",
@@ -12402,11 +12381,15 @@
             "automationRun": "automation runs",
             "mobileTabSelection": "mobile tab selections",
             "uiRouting": "sidebar and filter settings"
+          },
+          "loadFailed": "Orca couldn’t load SSH hosts and unfinished moves. Reopen Settings to try again.",
+          "outcome": {
+            "live": "Not done: terminals on this server are still running. Close them and try again.",
+            "unverifiable": "Not done: Orca couldn’t confirm what is running on this server. Try again when the host is reachable.",
+            "migration": "Not done: a move onto this server is unfinished. Resume it first.",
+            "deferred": "Not done yet: the server isn’t ready for this. Try again later.",
+            "failed": "Orca couldn’t finish this on the server. Try again."
           }
-        },
-        "managedServersExperimentalSetting": {
-          "description": "Shows Managed servers under Remote Orca Servers, and Move to managed server on SSH hosts. macOS and Linux hosts only.",
-          "toggleLabel": "Toggle Managed servers"
         },
         "sshHostServer": {
           "sourceChanged": "Changed on an older Orca: runs the relay until it is moved to its managed server again.",
@@ -12418,13 +12401,25 @@
           "connecting": "Connecting to the managed Orca server…",
           "updating": "Updating managed server…",
           "hostNewer": "Runs a managed Orca server from a newer Orca; it keeps that version.",
-          "updateDeferred": "Runs a managed Orca server; it updates on a later connect: {{reason}}",
-          "updateFailed": "Runs a managed Orca server on its previous version; updating it failed: {{reason}}",
           "terminalsLive": "Runs the relay until its {{count}} open terminals are closed, then moves to a managed server.",
+          "terminalsLive_one": "Runs the relay until its {{count}} open terminal is closed, then moves to a managed server.",
+          "terminalsLive_other": "Runs the relay until its {{count}} open terminals are closed, then moves to a managed server.",
           "terminalsUnverifiable": "Runs the relay: Orca couldn’t confirm its terminals are closed. It moves on a later connect.",
-          "refused": "Not moved to a managed server: {{blocker}}",
           "retry": "Runs the relay this session; it moves to a managed server on a later connect.",
-          "failureDetails": "Details"
+          "failureDetails": "Details",
+          "unavailableUnknown": "Runs the relay: a managed Orca server can’t run on this host.",
+          "cause": {
+            "unsupportedHost": "Orca has no server build for this system",
+            "artifactsUnavailable": "this Orca build doesn’t include the server",
+            "libcUnidentified": "Orca couldn’t identify the host’s system libraries",
+            "runtimeSelfTest": "the server’s runtime failed its self-test",
+            "securitySoftware": "security software changed the server’s runtime",
+            "nativePreflight": "the host is missing system libraries the server needs"
+          },
+          "updateDeferredLater": "Runs a managed Orca server; it updates on a later connect.",
+          "updateFailedPrevious": "Runs a managed Orca server on its previous version; updating it failed.",
+          "terminalsLiveUncounted": "Runs the relay until its open terminals are closed, then moves to a managed server.",
+          "refusedBlocked": "Not moved to a managed server: something on this host stops the move."
         },
         "ZcodePlanAccountsSection": {
           "site": {
@@ -17679,16 +17674,23 @@
       },
       "managedServerMove": {
         "offer": "Move {{host}} to a managed Orca server for more reliable connections. Its {{count}} open terminals will restart.",
+        "offer_one": "Move {{host}} to a managed Orca server for more reliable connections. Its {{count}} open terminal will restart.",
+        "offer_other": "Move {{host}} to a managed Orca server for more reliable connections. Its {{count}} open terminals will restart.",
         "moved": "{{host}} now runs a managed Orca server.",
         "refusedLive": "Not moved: {{count}} terminals on {{host}} are still running.",
+        "refusedLive_one": "Not moved: {{count}} terminal on {{host}} is still running.",
+        "refusedLive_other": "Not moved: {{count}} terminals on {{host}} are still running.",
         "refusedUnverifiable": "Not moved: Orca couldn’t confirm that {{count}} terminals on {{host}} stopped.",
+        "refusedUnverifiable_one": "Not moved: Orca couldn’t confirm that {{count}} terminal on {{host}} stopped.",
+        "refusedUnverifiable_other": "Not moved: Orca couldn’t confirm that {{count}} terminals on {{host}} stopped.",
         "stayed": "{{host}} still runs the relay. SSH Hosts in Settings shows why.",
         "failed": "Could not move {{host}}: {{reason}}",
         "running": "Moving {{host}} to a managed Orca server…",
         "title": "Move to managed server",
         "confirm": "Move",
         "notNow": "Not now",
-        "close": "Close"
+        "close": "Close",
+        "offerUncounted": "Move {{host}} to a managed Orca server for more reliable connections. Its open terminals will restart."
       }
     },
     "main": {

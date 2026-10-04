@@ -1756,37 +1756,6 @@
             }
           }
         },
-        "managedServers": {
-          "move": {
-            "action": "Move to managed server",
-            "cancel": "Cancel",
-            "close": "Close",
-            "confirm": "I have closed every terminal on this host. Running terminals cannot move and stop the move.",
-            "converted": "Moved. {{name}} now serves these projects.",
-            "description": "Orca installs a server on {{host}} and moves this host’s projects onto it. The host keeps everything until the server confirms it has a copy.",
-            "moves": "What moves",
-            "resume": "Resume",
-            "running": "Installing the server and copying projects. You can close Settings; the move resumes from where it stopped.",
-            "submit": "Move host",
-            "title": "Move to managed server"
-          },
-          "moves": {
-            "automations": "Automations: {{count}}",
-            "folderWorkspaces": "Folder workspaces: {{count}}",
-            "projectGroups": "Project groups: {{count}}",
-            "repositories": "Repositories: {{count}}",
-            "session": "Closed tabs and saved layouts"
-          },
-          "search": {
-            "description": "Deploy and run an Orca server on your own SSH hosts, and move an SSH host’s projects onto one.",
-            "keywordMigrate": "migrate",
-            "keywordServer": "server"
-          }
-        },
-        "managedServersExperimentalSetting": {
-          "description": "Shows Managed servers under Remote Orca Servers, and Move to managed server on SSH hosts. macOS and Linux hosts only.",
-          "toggleLabel": "Toggle Managed servers"
-        },
         "mobile": {
           "settings": {
             "search": {
@@ -1828,6 +1797,10 @@
             "62826efbe9": "Add a new remote SSH target.",
             "74c6d90d78": "Manage remote SSH targets."
           }
+        },
+        "sshHostServer": {
+          "terminalsLive_one": "Runs the relay until its {{count}} open terminal is closed, then moves to a managed server.",
+          "terminalsLive_other": "Runs the relay until its {{count}} open terminals are closed, then moves to a managed server."
         },
         "terminal": {
           "windows": {
@@ -2730,6 +2703,16 @@
         "timedOut": "Timed out loading check details."
       }
     },
+    "ssh": {
+      "managedServerMove": {
+        "offer_one": "Move {{host}} to a managed Orca server for more reliable connections. Its {{count}} open terminal will restart.",
+        "offer_other": "Move {{host}} to a managed Orca server for more reliable connections. Its {{count}} open terminals will restart.",
+        "refusedLive_one": "Not moved: {{count}} terminal on {{host}} is still running.",
+        "refusedLive_other": "Not moved: {{count}} terminals on {{host}} are still running.",
+        "refusedUnverifiable_one": "Not moved: Orca couldn’t confirm that {{count}} terminal on {{host}} stopped.",
+        "refusedUnverifiable_other": "Not moved: Orca couldn’t confirm that {{count}} terminals on {{host}} stopped."
+      }
+    },
     "store": {
       "slices": {
         "settings": {
@@ -2913,7 +2896,6 @@
         "openCurrentConversation": "Open the current conversation to continue.",
         "optionRejected": "The agent didn't accept this setting.",
         "outcomeUnknown": "Orca couldn't confirm what happened. Check the chat.",
-        "sendOutcomeLost": "Orca couldn't confirm your message reached the agent. Check the chat, then send it again if needed.",
         "ownerUnproven": "The previous agent in this chat may still be running.",
         "promptPending": "The agent is waiting for an answer to a question or approval.",
         "questionChanged": "This question was already answered or has changed.",
@@ -2923,6 +2905,7 @@
         "reopenChat": "Reopen the chat to check again.",
         "restartFailed": "The agent couldn't restart.",
         "savedByNewerOrca": "Chats were saved by a newer Orca.",
+        "sendOutcomeLost": "Orca couldn't confirm your message reached the agent. Check the chat, then send it again if needed.",
         "settleEarlierMessage": "Wait for your earlier message to go through, or retry it.",
         "startNewChat": "Start a new chat to continue.",
         "terminalAgentHoldsChat": "This chat is still open in a terminal agent.",

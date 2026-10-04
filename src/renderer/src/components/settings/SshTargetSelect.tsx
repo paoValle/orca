@@ -2,6 +2,7 @@ import type { SshTarget } from '../../../../shared/ssh-types'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 
 type SshTargetSelectProps = {
+  id?: string
   targets: SshTarget[]
   value: string
   onChange: (targetId: string) => void
@@ -9,6 +10,7 @@ type SshTargetSelectProps = {
 }
 
 export function SshTargetSelect({
+  id,
   targets,
   value,
   onChange,
@@ -16,7 +18,7 @@ export function SshTargetSelect({
 }: SshTargetSelectProps): React.JSX.Element {
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="w-full">
+      <SelectTrigger id={id} className="w-full">
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>

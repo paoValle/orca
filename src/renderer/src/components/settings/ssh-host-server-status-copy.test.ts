@@ -25,10 +25,12 @@ describe('SSH host server status line', () => {
       sshHostServerStatusLine(plain, {
         managedServer: { kind: 'relay', reason: 'refused', detail: 'An automation runs here.' }
       })
-    ).toMatchObject({
-      tone: 'destructive',
-      text: expect.stringContaining('An automation runs here.')
-    })
+    ).toMatchObject({ tone: 'destructive', detail: 'An automation runs here.' })
+    expect(
+      sshHostServerStatusLine(plain, {
+        managedServer: { kind: 'relay', reason: 'relay_terminals_live' }
+      })?.text
+    ).not.toMatch(/\d/)
   })
 
   it('offers the move only while live relay terminals keep the host on the relay', () => {
@@ -71,11 +73,11 @@ describe('SSH host server status line', () => {
     expect(managed({ state: 'host-newer' })?.text).toContain('from a newer Orca')
     expect(managed({ state: 'deferred', detail: '2 terminals are running.' })).toMatchObject({
       tone: 'muted',
-      text: expect.stringContaining('2 terminals are running.')
+      detail: '2 terminals are running.'
     })
     expect(managed({ state: 'failed', detail: 'readiness timed out' })).toMatchObject({
       tone: 'warning',
-      text: expect.stringContaining('readiness timed out')
+      detail: 'readiness timed out'
     })
   })
 
@@ -94,7 +96,13 @@ describe('SSH host server status line', () => {
         { managedServerUnavailable: { reason: 'native_preflight', appVersion: '1.5.0' } },
         undefined
       )?.text
-    ).toContain('native_preflight')
+    ).toContain('missing system libraries')
+    expect(
+      sshHostServerStatusLine(
+        { managedServerUnavailable: { reason: 'future_reason', appVersion: '1.5.0' } },
+        undefined
+      )
+    ).toMatchObject({ text: expect.not.stringContaining('future_reason'), detail: 'future_reason' })
   })
 
   it('says plainly when neither port forwarding nor the SSH session reaches a managed server', () => {

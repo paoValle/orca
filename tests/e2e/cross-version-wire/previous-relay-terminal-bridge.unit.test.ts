@@ -1,4 +1,4 @@
-import { execFile, type ChildProcess } from 'node:child_process'
+import type { ChildProcess } from 'node:child_process'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -15,6 +15,8 @@ import { materializeReleaseCheckout } from './release-checkout'
 import {
   installReleasedRelay,
   openShellRelayTransport,
+  PREVIOUS_RELAY_REF,
+  runShell,
   startReleasedRelayDaemon,
   type ReleasedRelayInstall
 } from './released-relay-daemon'
@@ -25,17 +27,10 @@ import {
  * through the old relay's own bridge, resume the pane on it, and — once the shell exits — leave the
  * old relay to retire itself on its own grace.
  */
-const PREVIOUS_RELAY_REF = 'v1.4.218'
 const TARGET_ID = 'ssh-upgraded'
 // Why so long: the departed app's owner claim is held for its 30s grace before a new owner may take it.
 const SUITE_TIMEOUT_MS = 240_000
 const IDLE_GRACE_MS = 1_500
-
-function runShell(command: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    execFile('sh', ['-c', command], (error, stdout) => (error ? reject(error) : resolve(stdout)))
-  })
-}
 
 function waitFor(check: () => boolean, timeoutMs: number): Promise<void> {
   const deadline = Date.now() + timeoutMs

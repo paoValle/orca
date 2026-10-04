@@ -105,3 +105,67 @@ export function conversionBlockerLabel(blocker: OrcadMigrationBlocker): string {
       )
   }
 }
+
+// Main's refusal codes, grouped by what the user does next; its English `reason` never reaches UI.
+const LIVE_TERMINAL_CODES = new Set([
+  'orcad_initial_runtime_live',
+  'orcad_update_strands_live_terminals',
+  'orcad_update_terminals_running',
+  'orcad_rollback_orphans_live_terminals',
+  'orcad_rollback_strands_live_terminals',
+  'orcad_recovery_orphans_live_terminals',
+  'orcad_stop_still_running'
+])
+const UNVERIFIABLE_CODES = new Set([
+  'orcad_initial_runtime_unverifiable',
+  'orcad_update_terminal_census_unavailable',
+  'orcad_update_daemon_protocol_unverifiable',
+  'orcad_rollback_active_identity_unverifiable',
+  'orcad_rollback_census_unavailable',
+  'orcad_rollback_daemon_protocol_unverifiable',
+  'orcad_rollback_snapshot_unverifiable',
+  'orcad_recovery_census_required',
+  'orcad_recovery_unverifiable',
+  'orcad_stop_cancel_unverifiable'
+])
+const MIGRATION_CODES = new Set([
+  'orcad_rollback_migration_in_progress',
+  'orcad_rollback_crosses_migration'
+])
+
+/** The one localized line for a managed-server action that did not go through. */
+export function managedServerOutcomeLabel(result: {
+  outcome: string
+  code?: string
+  verdict?: string
+}): string {
+  const code = result.code ?? ''
+  if (result.verdict === 'live' || LIVE_TERMINAL_CODES.has(code)) {
+    return translate(
+      'auto.components.settings.managedServers.outcome.live',
+      'Not done: terminals on this server are still running. Close them and try again.'
+    )
+  }
+  if (result.verdict === 'unverifiable' || UNVERIFIABLE_CODES.has(code)) {
+    return translate(
+      'auto.components.settings.managedServers.outcome.unverifiable',
+      'Not done: Orca couldn’t confirm what is running on this server. Try again when the host is reachable.'
+    )
+  }
+  if (MIGRATION_CODES.has(code)) {
+    return translate(
+      'auto.components.settings.managedServers.outcome.migration',
+      'Not done: a move onto this server is unfinished. Resume it first.'
+    )
+  }
+  if (result.outcome === 'deferred' || result.outcome === 'pending') {
+    return translate(
+      'auto.components.settings.managedServers.outcome.deferred',
+      'Not done yet: the server isn’t ready for this. Try again later.'
+    )
+  }
+  return translate(
+    'auto.components.settings.managedServers.outcome.failed',
+    'Orca couldn’t finish this on the server. Try again.'
+  )
+}

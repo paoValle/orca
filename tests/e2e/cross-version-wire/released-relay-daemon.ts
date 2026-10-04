@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from 'node:child_process'
+import { execFile, spawn, type ChildProcess } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { mkdir, symlink, writeFile } from 'node:fs/promises'
 import { connect } from 'node:net'
@@ -18,7 +18,18 @@ export type ReleasedRelayInstall = {
   version: string
 }
 
+/** The release whose relay an upgraded host still runs. */
+export const PREVIOUS_RELAY_REF = 'v1.4.218'
+
 const SENTINEL = Buffer.from(RELAY_SENTINEL, 'utf-8')
+
+export function runShell(command: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    execFile('sh', ['-c', command], { timeout: 20_000 }, (error, stdout) =>
+      error ? reject(error) : resolve(stdout)
+    )
+  })
+}
 
 /**
  * Bundles the release's relay the way its own build did, then lays it out as a host install:

@@ -120,23 +120,6 @@ export type OrcadManagedConversionResult =
       reason: string
     }
 
-/** What converting an SSH host would move, and what stops it, before anything is touched. */
-export type OrcadManagedConversionPreview = {
-  sshTargetId: string
-  targetLabel: string | null
-  moves: {
-    repositories: number
-    projectGroups: number
-    folderWorkspaces: number
-    automations: number
-    workspaceSession: boolean
-  }
-  blockers: OrcadMigrationBlocker[]
-  terminals:
-    | { verdict: 'exited' }
-    | { verdict: 'live' | 'unverifiable'; ptyIds: string[]; reason: string }
-}
-
 export type OrcadManagedPendingMigrationRow = {
   migrationId: string
   environmentId: string

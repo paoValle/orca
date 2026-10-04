@@ -61,7 +61,9 @@ describe('managed server row', () => {
     const { container } = await render()
     expect(container.textContent).toContain('Running terminals: unknown')
     expect(container.textContent).toContain('Migration: Copy staged')
-    expect(container.textContent).toContain('Update to 1.3.0 deferred: the daemon did not answer')
+    expect(container.textContent).toContain('Update to 1.3.0 deferred.')
+    expect(container.textContent).toContain('couldn’t confirm what is running')
+    expect(container.textContent).not.toContain('the daemon did not answer')
     expect(button(container, 'Roll back')).toBeUndefined()
   })
 

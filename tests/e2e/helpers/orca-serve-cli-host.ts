@@ -17,25 +17,33 @@ export type CliServe = {
   stop: () => Promise<void>
 }
 
-/** A fresh isolated profile the CLI and whichever host it starts both use. */
-export function cliServeProfile(parent: string): { userDataDir: string; env: NodeJS.ProcessEnv } {
-  const userDataDir = mkdtempSync(path.join(parent, 'cli-serve-'))
+/** Writes the onboarded profile into `userDataDir` and isolates the launch home around it. */
+export function isolatedServeProfile(
+  userDataDir: string,
+  launchEnv: NodeJS.ProcessEnv
+): ReturnType<typeof createElectronHomeIsolation> {
   writeFileSync(
     path.join(userDataDir, 'orca-data.json'),
     `${JSON.stringify(getE2ECompletedOnboardingProfile(), null, 2)}\n`
   )
   const { ELECTRON_RUN_AS_NODE: _unused, ...cleanEnv } = process.env
   void _unused
-  const isolation = createElectronHomeIsolation({
+  return createElectronHomeIsolation({
     inheritedEnv: cleanEnv,
-    // The lock flag makes e2e builds take the profile lock this test reads, as the host helper does.
-    launchEnv: {
-      NODE_ENV: 'development',
-      ORCA_E2E_ENFORCE_SINGLE_INSTANCE_LOCK: '1',
-      ORCA_E2E_HEADLESS: '1'
-    },
+    launchEnv,
     extraEnv: {},
     userDataDir
+  })
+}
+
+/** A fresh isolated profile the CLI and whichever host it starts both use. */
+export function cliServeProfile(parent: string): { userDataDir: string; env: NodeJS.ProcessEnv } {
+  const userDataDir = mkdtempSync(path.join(parent, 'cli-serve-'))
+  // The lock flag makes e2e builds take the profile lock this test reads, as the host helper does.
+  const isolation = isolatedServeProfile(userDataDir, {
+    NODE_ENV: 'development',
+    ORCA_E2E_ENFORCE_SINGLE_INSTANCE_LOCK: '1',
+    ORCA_E2E_HEADLESS: '1'
   })
   return {
     userDataDir,
@@ -49,11 +57,71 @@ export function cliServeProfile(parent: string): { userDataDir: string; env: Nod
   }
 }
 
+export type ReadyProcess<T> = {
+  ready: T
+  stderr: () => string
+  /** SIGTERM, then waits for exit. */
+  stop: () => Promise<void>
+}
+
+/** Spawns a serve process and resolves once `parseReady` finds readiness in its stdout. */
+export async function spawnUntilReady<T>(options: {
+  label: string
+  program: string
+  args: string[]
+  env: NodeJS.ProcessEnv
+  timeoutMs: number
+  parseReady: (stdout: string) => T | null
+}): Promise<ReadyProcess<T>> {
+  const child = spawnProcess({
+    program: options.program,
+    args: options.args,
+    env: options.env,
+    timeoutMs: null
+  })
+  let stdout = ''
+  let stderr = ''
+  child.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString('utf8')))
+  const stop = async (): Promise<void> => {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      return
+    }
+    const exited = new Promise((settle) => child.once('exit', settle))
+    child.kill('SIGTERM')
+    await exited
+  }
+  const ready = await new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      // Why stop first: a leaked host keeps the profile lock and daemon for the rest of the suite.
+      void stop().finally(() => reject(new Error(`${options.label} not ready: ${stderr}`)))
+    }, options.timeoutMs)
+    child.stdout.on('data', (chunk: Buffer) => {
+      stdout += chunk.toString('utf8')
+      const parsed = options.parseReady(stdout)
+      if (parsed !== null) {
+        clearTimeout(timer)
+        resolve(parsed)
+      }
+    })
+    child.once('exit', (code) => {
+      clearTimeout(timer)
+      reject(new Error(`${options.label} exited ${String(code)}: ${stderr}`))
+    })
+  })
+  return { ready, stderr: () => stderr, stop }
+}
+
 export async function startCliServe(
   profile: { userDataDir: string; env: NodeJS.ProcessEnv },
   extraEnv: NodeJS.ProcessEnv = {}
 ): Promise<CliServe> {
-  const child = spawnProcess({
+  const stopHost = async (): Promise<void> => {
+    if (process.platform === 'win32') {
+      await killProfileLockHolder(profile.userDataDir)
+    }
+  }
+  const serve = await spawnUntilReady({
+    label: 'orca serve',
     program: process.execPath,
     args: [
       path.join(process.cwd(), 'out', 'cli', 'index.js'),
@@ -65,43 +133,22 @@ export async function startCliServe(
       '127.0.0.1'
     ],
     env: { ...profile.env, ...extraEnv },
-    timeoutMs: null
-  })
-  let stdout = ''
-  let stderr = ''
-  child.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString('utf8')))
-  // A first run may fetch and verify the pinned Node before orcad starts.
-  const readiness = await new Promise<Record<string, unknown>>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`orca serve not ready: ${stderr}`)), 240_000)
-    child.stdout.on('data', (chunk: Buffer) => {
-      stdout += chunk.toString('utf8')
-      const ready = parseReadiness(stdout)
-      if (ready) {
-        clearTimeout(timer)
-        resolve(ready)
-      }
-    })
-    child.once('exit', (code) => {
-      clearTimeout(timer)
-      reject(new Error(`orca serve exited ${String(code)}: ${stderr}`))
-    })
+    // A first run may fetch and verify the pinned Node before orcad starts.
+    timeoutMs: 240_000,
+    parseReady: parseReadiness
+  }).catch(async (error: unknown) => {
+    await stopHost()
+    throw error
   })
   return {
     userDataDir: profile.userDataDir,
-    readiness,
-    stderr: () => stderr,
+    readiness: serve.ready,
+    stderr: serve.stderr,
     stop: async () => {
-      if (child.exitCode !== null || child.signalCode !== null) {
-        return
-      }
-      const exited = new Promise((settle) => child.once('exit', settle))
       // POSIX: the CLI forwards SIGTERM to the host it started. Windows has no signal to forward:
       // kill() ends only the CLI, so the host holding the profile lock is ended too.
-      child.kill('SIGTERM')
-      await exited
-      if (process.platform === 'win32') {
-        await killProfileLockHolder(profile.userDataDir)
-      }
+      await serve.stop()
+      await stopHost()
     }
   }
 }

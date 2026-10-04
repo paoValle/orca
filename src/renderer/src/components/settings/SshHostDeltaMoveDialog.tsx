@@ -14,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle
 } from '../ui/dialog'
-import { conversionBlockerLabel } from './managed-server-copy'
+import { conversionBlockerLabel, managedServerOutcomeLabel } from './managed-server-copy'
 import { deltaMoveRowLabel } from './ssh-host-delta-move-copy'
 
 type SshHostDeltaMoveDialogProps = {
@@ -35,28 +35,30 @@ export function SshHostDeltaMoveDialog({
   const [preview, setPreview] = useState<OrcadDeltaMovePreview | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [running, setRunning] = useState(false)
+  // Why the id: callers pass a fresh target object on every reload, which must not reset a run.
+  const targetId = target?.id ?? null
 
   useEffect(() => {
-    if (!target) {
+    if (!targetId) {
       return
     }
     setPreview(null)
     setError(null)
     setRunning(false)
-    api.previewDeltaMove({ sshTargetId: target.id }).then(
+    api.previewDeltaMove({ sshTargetId: targetId }).then(
       (next) => mountedRef.current && setPreview(next),
       (cause: unknown) => mountedRef.current && setError(messageOf(cause))
     )
-  }, [api, mountedRef, target])
+  }, [api, mountedRef, targetId])
 
   const move = async (): Promise<void> => {
-    if (!target) {
+    if (!targetId || running) {
       return
     }
     setRunning(true)
     setError(null)
     try {
-      const result = await api.moveDelta({ sshTargetId: target.id })
+      const result = await api.moveDelta({ sshTargetId: targetId })
       if (!mountedRef.current) {
         return
       }
@@ -65,7 +67,9 @@ export function SshHostDeltaMoveDialog({
         onClose()
         return
       }
-      setError(result.blockers?.map(conversionBlockerLabel).join(' ') || result.reason)
+      setError(
+        result.blockers?.map(conversionBlockerLabel).join(' ') || managedServerOutcomeLabel(result)
+      )
     } catch (cause) {
       if (mountedRef.current) {
         setError(messageOf(cause))
@@ -82,8 +86,8 @@ export function SshHostDeltaMoveDialog({
     : []
   const blocked = (preview?.blockers.length ?? 0) > 0
   return (
-    <Dialog open={target !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent>
+    <Dialog open={target !== null} onOpenChange={(open) => !open && !running && onClose()}>
+      <DialogContent showCloseButton={!running}>
         <DialogHeader>
           <DialogTitle>
             {translate('auto.components.settings.deltaMove.title', 'Move the new projects')}
@@ -142,7 +146,7 @@ export function SshHostDeltaMoveDialog({
         )}
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={running}>
+          <Button variant="ghost" onClick={onClose} disabled={running}>
             {translate('auto.components.settings.deltaMove.cancel', 'Cancel')}
           </Button>
           <Button

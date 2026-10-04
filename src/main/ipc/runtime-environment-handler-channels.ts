@@ -22,7 +22,6 @@ export const RUNTIME_ENVIRONMENT_HANDLER_CHANNELS = [
   'runtimeEnvironments:recoverOrcad',
   'runtimeEnvironments:stopOrcad',
   'runtimeEnvironments:cancelOrcadStop',
-  'runtimeEnvironments:previewOrcadConversion',
   'runtimeEnvironments:convertSshHostToManagedOrcad',
   'runtimeEnvironments:listPendingOrcadMigrations',
   'runtimeEnvironments:previewOrcadDeltaMove',

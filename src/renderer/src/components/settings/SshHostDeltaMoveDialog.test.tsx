@@ -59,7 +59,6 @@ function api(next: OrcadDeltaMovePreview, result: OrcadDeltaMoveResult): Managed
     cancelStop: unused,
     linkSshAccess: unused,
     unlinkSshAccess: unused,
-    previewConversion: unused,
     convertSshHost: unused,
     listPendingMigrations: unused,
     previewDeltaMove: vi.fn(async () => next),
@@ -117,7 +116,33 @@ describe('moving what an older build added', () => {
     })
     const container = await render(managed)
     await act(async () => confirmButton(container).click())
-    expect(container.textContent).toContain('orcad_migration_repository_id_conflict:repo-2')
+    expect(container.textContent).toContain('Orca couldn’t finish this on the server.')
+    expect(container.textContent).not.toContain('orcad_')
+  })
+
+  it('keeps a running move when the caller passes a fresh target object', async () => {
+    const managed = api(preview(), { outcome: 'moved', migrationId: 'm-2' })
+    managed.moveDelta = vi.fn(() => new Promise<OrcadDeltaMoveResult>(() => {}))
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+    roots.push(root)
+    const renderWith = (next: SshTarget) =>
+      act(async () => {
+        root.render(
+          <SshHostDeltaMoveDialog
+            api={managed}
+            target={next}
+            onClose={vi.fn()}
+            onFinished={vi.fn()}
+          />
+        )
+      })
+    await renderWith(target)
+    await act(async () => confirmButton(container).click())
+    await renderWith({ ...target })
+    expect(managed.previewDeltaMove).toHaveBeenCalledTimes(1)
+    expect(confirmButton(container).disabled).toBe(true)
   })
 
   it('does not offer the move when nothing is new', async () => {
