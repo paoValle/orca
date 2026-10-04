@@ -619,6 +619,33 @@ describe('delayed settle repair span', () => {
     expect(double.requests[2]).toEqual({ start: 3, end: 20 })
   })
 
+  it('keeps the superseded repair rows when a later write queues its own repeat', () => {
+    // The caret sits outside the parse span, so only the queued repair's own span
+    // remembers row 5; the parse tracker never saw it.
+    const double = createControllableTarget({ start: 10, end: 10 }, 5)
+    writeForegroundTerminalChunk(double.target, 'in-place rewrite', {
+      forceViewportRefresh: true,
+      followupViewportRefresh: true,
+      shouldRefreshViewportSynchronously: () => false
+    })
+    expect(double.requests[0]).toEqual({ start: 5, end: 10 })
+
+    // A second forced write queues a repeat of its own, superseding the first.
+    double.setDirty({ start: 20, end: 20 })
+    double.active.cursorY = 20
+    writeForegroundTerminalChunk(double.target, 'second rewrite', {
+      forceViewportRefresh: true,
+      followupViewportRefresh: true,
+      shouldRefreshViewportSynchronously: () => false
+    })
+    expect(double.requests[1]).toEqual({ start: 20, end: 20 })
+
+    frame.flush()
+
+    // Superseding the queued repair must not discard the rows it already owed.
+    expect(double.requests[2]).toEqual({ start: 5, end: 20 })
+  })
+
   it('repaints the whole viewport when the terminal scrolled before the repeat', () => {
     const double = createControllableTarget({ start: 10, end: 10 }, 10)
     writeForegroundTerminalChunk(double.target, 'in-place rewrite', {

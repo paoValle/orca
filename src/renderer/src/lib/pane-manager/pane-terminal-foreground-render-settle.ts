@@ -166,6 +166,11 @@ function unionRowSpans(
   return { start: Math.min(left.start, right.start), end: Math.max(left.end, right.end) }
 }
 
+/** The span a queued repair would repeat, before it is validated against geometry. */
+function queuedRepairRowSpan(terminal: ForegroundTerminalOutputTarget): ParsedDirtyRowSpan | null {
+  return pendingViewportSettleRefreshByTerminal.get(terminal)?.repair.span ?? null
+}
+
 /**
  * Widen a repair that is already queued so the reset about to happen cannot drop
  * rows it still owes. A pending whole-grid repair (`span: null`) already covers
@@ -315,7 +320,12 @@ export function writeForegroundTerminalChunk(
   if (beforeWriteViewport) {
     // Why before the reset: a queued repair may still be waiting on rows an
     // earlier ordinary write dirtied, and this reset is about to forget them.
-    carriedDirtySpan = readParsedDirtyRowSpan(terminal)
+    // Why the queued span is unioned in too: this write may supersede that repair,
+    // and its span can hold rows the parse tracker never saw (caret rows).
+    carriedDirtySpan = unionRowSpans(
+      readParsedDirtyRowSpan(terminal),
+      queuedRepairRowSpan(terminal)
+    )
     carryRowsIntoPendingRepair(terminal, carriedDirtySpan)
     // Why here and not in the callback: the span must cover only this write's
     // parse, and xterm fires its dirty-row request between the two.
