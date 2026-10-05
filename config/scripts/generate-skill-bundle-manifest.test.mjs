@@ -55,6 +55,7 @@ async function createReleaseSandbox() {
   return {
     generate: (...args) => execFileSync(process.execPath, [script, ...args], { stdio: 'pipe' }),
     read: (name) => readFile(path.join(root, 'resources', 'skills', name), 'utf8'),
+    write: (name, body) => writeFile(path.join(root, 'resources', 'skills', name), body),
     editSkill: (body) => writeFile(path.join(skillRoot, 'SKILL.md'), body)
   }
 }
@@ -374,6 +375,24 @@ describe('skill bundle manifest generator', () => {
       /Generated skill artifacts are stale/
     )
     expect(JSON.parse(await sandbox.read('release-mapping.json')).releases).toHaveLength(1)
+  })
+
+  it('accepts a CRLF or lone-CR working copy of the artifacts', async () => {
+    const sandbox = await createReleaseSandbox()
+    sandbox.generate('--write')
+    const names = ['current-manifest.json', 'snapshot-registry.json', 'release-mapping.json']
+    const lfText = new Map(
+      await Promise.all(names.map(async (name) => [name, await sandbox.read(name)]))
+    )
+
+    // Git for Windows checks text files out with CRLF, and a tool rewriting one may
+    // leave a bare CR. Neither is a content change, so verification must still pass.
+    for (const eol of ['\r\n', '\r']) {
+      for (const name of names) {
+        await sandbox.write(name, lfText.get(name).replaceAll('\n', eol))
+      }
+      expect(() => sandbox.generate()).not.toThrow()
+    }
   })
 
   it('freezes a revision once a release records it, and only until then', async () => {
