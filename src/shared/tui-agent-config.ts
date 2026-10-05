@@ -91,6 +91,9 @@ const TUI_AGENT_CONFIG_SOURCE: Record<TuiAgent, TuiAgentConfigSource> = {
   opencode: {
     detectCmd: 'opencode',
     promptInjectionMode: 'flag-prompt',
+    // Why: opencode decodes CSI-u, but local ConPTY withholds the kitty advertisement, so
+    // Ctrl+Enter would otherwise arrive as a bare CR (#25372).
+    ctrlEnterEncoding: 'csi-u',
     // Why: opencode enables bracketed paste before its composer mounts; wait for the post-\x1b[?2004h show-cursor so paste lands.
     draftPasteReadySignal: 'render-cursor-after-bracketed-paste',
     // Why 20s: measured on two Windows hosts (ConPTY dll backend, as pinned by
