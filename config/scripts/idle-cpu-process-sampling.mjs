@@ -67,6 +67,18 @@ function cimTimeSeconds(value) {
   return typeof value === 'number' && Number.isFinite(value) ? value / 10_000_000 : null
 }
 
+/**
+ * The sampler derives CPU from the per-process time delta, so a `Win32_Process`
+ * entry without both time fields must stay `null` rather than become kernel-only.
+ */
+export function cimCpuSeconds(entry) {
+  const userModeSeconds = cimTimeSeconds(entry.UserModeTime)
+  const kernelModeSeconds = cimTimeSeconds(entry.KernelModeTime)
+  return userModeSeconds !== null && kernelModeSeconds !== null
+    ? userModeSeconds + kernelModeSeconds
+    : null
+}
+
 function readWindowsProcesses() {
   const script =
     'Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,WorkingSetSize,UserModeTime,KernelModeTime,CommandLine | ConvertTo-Json -Compress'
@@ -79,23 +91,14 @@ function readWindowsProcesses() {
   }
   const parsed = JSON.parse(result.stdout || '[]')
   const entries = Array.isArray(parsed) ? parsed : [parsed]
-  return entries.map((entry) => {
-    // Why: the sampler derives CPU from the per-process time delta, so without
-    // this the Windows reader reports 0% for everything.
-    const userModeSeconds = cimTimeSeconds(entry.UserModeTime)
-    const kernelModeSeconds = cimTimeSeconds(entry.KernelModeTime)
-    return {
-      pid: Number(entry.ProcessId),
-      ppid: Number(entry.ParentProcessId),
-      percentCpu: 0,
-      cpuTimeSeconds:
-        userModeSeconds !== null && kernelModeSeconds !== null
-          ? userModeSeconds + kernelModeSeconds
-          : null,
-      rssBytes: Number(entry.WorkingSetSize) || 0,
-      command: String(entry.CommandLine || '')
-    }
-  })
+  return entries.map((entry) => ({
+    pid: Number(entry.ProcessId),
+    ppid: Number(entry.ParentProcessId),
+    percentCpu: 0,
+    cpuTimeSeconds: cimCpuSeconds(entry),
+    rssBytes: Number(entry.WorkingSetSize) || 0,
+    command: String(entry.CommandLine || '')
+  }))
 }
 
 export function readProcessRows() {
