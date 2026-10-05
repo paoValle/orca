@@ -3,10 +3,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AgentSessionJournalIdentity } from '../../shared/agent-session-journal-types'
-import { openAgentSessionJournal } from '../native-chat/agent-session-journal/journal-store-factory'
 import { createDeferredStructuredAgentSessionEventSink } from '../native-chat/agent-session-wire/structured-agent-session-event-sink'
 import { createClaudeJournalTranslator } from './claude-structured-journal-translation'
-import { openTestJournalHostDatabase } from '../native-chat/agent-session-journal/journal-host-database-test-support'
+import { createTrackedJournalOpener } from '../native-chat/agent-session-journal/journal-host-database-test-support'
 import { testEventSinkLogging } from '../native-chat/agent-session-wire/structured-agent-session-logger-test-support'
 import { claudeInitRowBody } from './claude-init-row'
 
@@ -32,6 +31,7 @@ function init(mcpServers: Record<string, unknown>[]): Record<string, unknown> {
   }
 }
 
+const journals = createTrackedJournalOpener()
 let root = ''
 
 beforeEach(async () => {
@@ -39,13 +39,15 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
+  // Why before the rm: the SQLite handle is still open, and Windows refuses to remove its directory.
+  await journals.closeAll()
   await rm(root, { recursive: true, force: true })
 })
 
 async function itemsFor(frames: Record<string, unknown>[]) {
-  const journal = await openAgentSessionJournal({
+  const journal = await journals.open({
     identity: IDENTITY,
-    database: openTestJournalHostDatabase(root),
+    stateDirectory: root,
     now: () => 1_700_000_000_000,
     mintEpoch: () => 'epoch-1'
   })
@@ -100,6 +102,27 @@ describe('claudeInitRowBody', () => {
     )
     expect(text({ name: 'c', status: 'CONNECTED' })).toBeNull()
     expect(text({ name: 'd' })).toBeNull()
+  })
+
+  it('names the action a server that needs a login is missing', () => {
+    expect(claudeInitRowBody({ mcp_servers: [{ name: 'jira', status: 'needs-auth' }] })?.text).toBe(
+      'MCP server jira needs authentication'
+    )
+  })
+
+  it('reports the shape the CLI actually captured', () => {
+    // Verbatim from #25477: failed entries carry name, status and source, and no sentence of their own.
+    const body = claudeInitRowBody({
+      mcp_servers: [
+        { name: 'MCP_DOCKER', status: 'failed', source: 'user' },
+        { name: 'codegraph', status: 'connected', source: 'user' },
+        { name: 'jira', status: 'failed', source: 'user' }
+      ]
+    })
+
+    expect(body?.text).toBe(
+      'MCP server MCP_DOCKER failed to start\nMCP server jira failed to start'
+    )
   })
 
   it('reports every unavailable server, bounded', () => {
