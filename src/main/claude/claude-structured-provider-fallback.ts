@@ -26,6 +26,7 @@ import {
   CLAUDE_INFORMATIONAL_FRAME_KIND,
   claudeInformationalRowBody
 } from './claude-informational-row'
+import { CLAUDE_INIT_FRAME_KIND, claudeInitRowBody } from './claude-init-row'
 
 export function claudeProviderFrameKind(message: Record<string, unknown>): string {
   const type = claudeText(message.type) ?? 'unknown'
@@ -154,6 +155,24 @@ export function createClaudeProviderFrameFallback(
       if (kind === CLAUDE_INFORMATIONAL_FRAME_KIND) {
         // Never the frame as a row: a warning in its own words, any other level nothing.
         const body = claudeInformationalRowBody(claudeRecord(payload) ?? {})
+        if (!body) {
+          return false
+        }
+        beforeAppend?.()
+        const identity = {
+          provider: 'orca',
+          clientMessageId: `provider-frame:claude:${acquisitionId}:${sequence}`
+        } as const
+        sink.appendItem(identity, body, stamp?.(identity, body) ?? { turnScope: turnScope() })
+        sink.publish()
+        return true
+      }
+      if (kind === CLAUDE_INIT_FRAME_KIND) {
+        // Never the handshake as a row: an MCP server this session could not use says so in its own
+        // words, and its tools/model/mode are chrome. Owning the kind here is also what keeps
+        // `hasProviderError` from promoting the frame into an error card named after the opcode,
+        // which is how the handshake reached users as `claude · message:system:init` (#25477).
+        const body = claudeInitRowBody(claudeRecord(payload) ?? {})
         if (!body) {
           return false
         }
