@@ -171,7 +171,10 @@ export function resolveNativeChatImageRuntimeContext(
 /**
  * True when the execution host's files live in this machine's filesystem: a local
  * host, or a runtime environment paired over a loopback endpoint. An ephemeral
- * VM or any non-loopback endpoint runs somewhere else — its files are not here.
+ * VM, an SSH-tunnel pairing and any non-loopback endpoint run somewhere else.
+ * The tunnel needs its own clause because its endpoint IS loopback — the near end
+ * of the tunnel is — while the files are the far end's, so reading them here
+ * would serve a same-path local file or nothing at all.
  */
 function runtimeFilesLiveOnThisMachine(
   state: OwnerState,
@@ -184,7 +187,11 @@ function runtimeFilesLiveOnThisMachine(
     return host.kind === 'local'
   }
   const environment = state.runtimeEnvironments.find((entry) => entry.id === host.environmentId)
-  if (!environment || environment.source === 'ephemeral-vm') {
+  if (
+    !environment ||
+    environment.source === 'ephemeral-vm' ||
+    environment.connectionDependency === 'ssh-tunnel'
+  ) {
     return false
   }
   const endpoints = environment.endpoints ?? []

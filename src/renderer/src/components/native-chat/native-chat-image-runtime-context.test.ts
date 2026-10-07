@@ -180,6 +180,32 @@ describe('resolveNativeChatImageRuntimeContext', () => {
     expect(context?.runtimeHostIsLocalMachine).toBe(true)
   })
 
+  it('treats an ssh-tunnel runtime as remote although its endpoint is loopback', () => {
+    // `connectionDependency: 'ssh-tunnel'` is set exactly when the endpoint kind is
+    // loopback, so the hostname alone would call this machine's own filesystem the
+    // owner of files that live at the far end of the tunnel.
+    const context = resolveNativeChatImageRuntimeContext(
+      runtimeOwnerState({
+        id: 'owner-a',
+        connectionDependency: 'ssh-tunnel',
+        endpoints: [
+          {
+            id: 'ep-1',
+            kind: 'websocket',
+            label: 'tunnel',
+            endpoint: 'ws://127.0.0.1:5555',
+            deviceToken: 't',
+            publicKeyB64: 'k'
+          }
+        ],
+        preferredEndpointId: 'ep-1'
+      }),
+      'tab-1'
+    )
+
+    expect(context?.runtimeHostIsLocalMachine).toBe(false)
+  })
+
   it('does not mark the runtime files as local when the endpoint is not loopback', () => {
     const context = resolveNativeChatImageRuntimeContext(
       runtimeOwnerState({
